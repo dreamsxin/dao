@@ -65,10 +65,6 @@ zval* _dao_call(zval *retval_ptr, zval *object, zend_class_entry *obj_ce, zend_f
 	fci.param_count = param_count;
 	fci.params = params;
 
-#if PHP_VERSION_ID < 80000
-	fci.no_separation = 1;
-#endif
-
 	if (!fn_proxy && !obj_ce) {
 		/* no interest in caching and no information already present that is
 		 * needed later inside zend_call_function. */
@@ -78,9 +74,7 @@ zval* _dao_call(zval *retval_ptr, zval *object, zend_class_entry *obj_ce, zend_f
 	} else {
 		zend_fcall_info_cache fcic;
 		ZVAL_UNDEF(&fci.function_name); /* Unused */
-#if PHP_VERSION_ID < 70300
-		fcic.initialized = 1;
-#endif
+
 		if (!obj_ce) {
 			obj_ce = object ? Z_OBJCE_P(object) : NULL;
 		}
@@ -241,7 +235,6 @@ static zend_always_inline zend_bool dao_is_derived_class(zend_class_entry *child
 	return 0;
 }
 
-#if PHP_VERSION_ID >= 70300
 static zend_never_inline zend_function *dao_get_function(zend_class_entry *scope, zend_string *function_name)
 {
 	zval *func;
@@ -256,11 +249,7 @@ static zend_never_inline zend_function *dao_get_function(zend_class_entry *scope
 	return NULL;
 }
 
-#if PHP_VERSION_ID >= 80000
 static zend_result dao_call_user_function(zend_function *fn, zend_class_entry *called_scope, zval *object, zval *function_name, zval *retval_ptr, uint32_t param_count, zval params[])
-#else
-static int dao_call_user_function(zend_function *fn, zend_class_entry *called_scope, zval *object, zval *function_name, zval *retval_ptr, uint32_t param_count, zval params[])
-#endif
 {
 	zend_fcall_info fci;
 	zend_fcall_info_cache fcic;
@@ -271,11 +260,9 @@ static int dao_call_user_function(zend_function *fn, zend_class_entry *called_sc
 	fci.retval = retval_ptr;
 	fci.param_count = param_count;
 	fci.params = params;
-#if PHP_VERSION_ID >= 80000
+
 	fci.named_params = NULL;
-#else
-	fci.no_separation = 1;
-#endif
+
 	if (fn != NULL) {
 		fcic.function_handler = fn;
 		fcic.object = object ? Z_OBJ_P(object) : NULL;
@@ -285,15 +272,13 @@ static int dao_call_user_function(zend_function *fn, zend_class_entry *called_sc
 	}
 	return zend_call_function(&fci, NULL);
 }
-#endif
 
 int dao_call_method_with_params(zval *retval, zval *object, zend_class_entry *ce, dao_call_type type, const char *method_name, uint method_len, uint param_count, zval *params[])
 {
 	zval func_name = {}, ret = {}, *retval_ptr = (retval != NULL) ? retval : &ret, obj = {};
 	zval *arguments;
-#if PHP_VERSION_ID >= 70300
 	zend_function *fbc = NULL;
-#endif
+
 	int i, status;
 
 	if (type != dao_fcall_function) {
@@ -316,7 +301,6 @@ int dao_call_method_with_params(zval *retval, zval *object, zend_class_entry *ce
 		}
 		assert(ce != NULL);
 
-#if PHP_VERSION_ID >= 70300
 		zend_string *str_methodname = zend_string_init(method_name, method_len, 0);
 		if (type != dao_fcall_parent) {
 			fbc = dao_get_function(ce, str_methodname);
@@ -327,7 +311,7 @@ int dao_call_method_with_params(zval *retval, zval *object, zend_class_entry *ce
 			ZVAL_STR(&func_name, str_methodname);
 		} else {
 			zend_string_release(str_methodname);
-#endif
+
 			switch (type) {
 				case dao_fcall_ce:
 					array_init_size(&func_name, 2);
@@ -359,9 +343,7 @@ int dao_call_method_with_params(zval *retval, zval *object, zend_class_entry *ce
 					dao_throw_exception_format(spl_ce_RuntimeException, "Error call type %d for cmethod %s", type, method_name);
 					return FAILURE;
 			}
-#if PHP_VERSION_ID >= 70300
 		}
-#endif
 	} else {
 		ZVAL_STRINGL(&func_name, method_name, method_len);
 	}
@@ -379,13 +361,7 @@ int dao_call_method_with_params(zval *retval, zval *object, zend_class_entry *ce
 	}
 
 	if (
-#if PHP_VERSION_ID >= 70300
-	(status = dao_call_user_function(fbc, ce, object, &func_name, retval_ptr, param_count, arguments)) == FAILURE || EG(exception)
-#elif PHP_VERSION_ID >= 70100
-	(status = call_user_function(ce ? &(ce)->function_table : EG(function_table), object, &func_name, retval_ptr, param_count, arguments)) == FAILURE || EG(exception)
-#else
-	(status = call_user_function_ex(ce ? &(ce)->function_table : EG(function_table), object, &func_name, retval_ptr, param_count, arguments, 1, NULL)) == FAILURE || EG(exception)
-#endif
+		(status = dao_call_user_function(fbc, ce, object, &func_name, retval_ptr, param_count, arguments)) == FAILURE || EG(exception)
 	) {
 		status = FAILURE;
 		ZVAL_NULL(retval_ptr);

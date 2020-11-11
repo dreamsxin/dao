@@ -179,7 +179,7 @@ static const zend_function_entry dao_image_adapter_imagick_method_entry[] = {
 	PHP_ME(Dao_Image_Adapter_Imagick, _pixelate, arginfo_dao_image_adapter__pixelate, ZEND_ACC_PROTECTED)
 	PHP_ME(Dao_Image_Adapter_Imagick, _save, arginfo_dao_image_adapter__save, ZEND_ACC_PROTECTED)
 	PHP_ME(Dao_Image_Adapter_Imagick, _render, arginfo_dao_image_adapter__render, ZEND_ACC_PROTECTED)
-	PHP_ME(Dao_Image_Adapter_Imagick, __destruct, arginfo_empty, ZEND_ACC_PUBLIC|ZEND_ACC_DTOR)
+	PHP_ME(Dao_Image_Adapter_Imagick, __destruct, arginfo_empty, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Image_Adapter_Imagick, line, arginfo_dao_image_adapterinterface_line, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Image_Adapter_Imagick, polygon, arginfo_dao_image_adapterinterface_polygon, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Image_Adapter_Imagick, shadow, arginfo_dao_image_adapter_imagick_shadow, ZEND_ACC_PUBLIC)

@@ -336,7 +336,7 @@ PHP_METHOD(Dao_Cache_Backend_Apc, queryKeys){
 	zval_ptr_dtor(&prefix_pattern);
 
 	/* APCIterator implements Iterator */
-	assert(instanceof_function_ex(apciterator_ce, zend_ce_iterator, 1));
+	assert(instanceof_function(apciterator_ce, zend_ce_iterator));
 
 	it = apciterator_ce->get_iterator(apciterator_ce, &iterator, 0);
 
@@ -419,7 +419,7 @@ PHP_METHOD(Dao_Cache_Backend_Apc, flush){
 	zval_ptr_dtor(&prefix_pattern);
 
 	/* APCIterator implements Iterator */
-	assert(instanceof_function_ex(apciterator_ce, zend_ce_iterator, 1));
+	assert(instanceof_function(apciterator_ce, zend_ce_iterator));
 
 	it = apciterator_ce->get_iterator(apciterator_ce, &iterator, 0);
 

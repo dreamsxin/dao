@@ -235,7 +235,7 @@ PHP_METHOD(Dao_Di_Service, resolve){
 	} else if (likely(Z_TYPE(definition) == IS_OBJECT)) {
 		/* Object definitions can be a Closure or an already resolved instance */
 		found = 1;
-		if (instanceof_function_ex(Z_OBJCE(definition), zend_ce_closure, 0)) {
+		if (instanceof_function(Z_OBJCE(definition), zend_ce_closure)) {
 			zval closure = {};
 			if (likely(Z_TYPE_P(dependency_injector) == IS_OBJECT)) {
 				DAO_CALL_CE_STATIC(&closure, zend_ce_closure, "bind", &definition, dependency_injector);

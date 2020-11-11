@@ -110,11 +110,7 @@ long dao_mt_rand(long min, long max) {
 		php_mt_srand(GENERATE_SEED());
 	}
 
-#if PHP_VERSION_ID >= 70200
 	number = php_mt_rand_range(min, max);
-#else
-	number = (long) (php_mt_rand() >> 1);
-	RAND_RANGE(number, min, max, PHP_MT_RAND_MAX);
-#endif
+
 	return number;
 }

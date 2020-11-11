@@ -281,7 +281,7 @@ PHP_METHOD(Dao_Validation_Validator_File, valid)
 		if (dao_has_constructor(&file)) {
 			DAO_CALL_METHOD(NULL, &file, "__construct", value);
 		}
-	} else if (Z_TYPE_P(value) == IS_OBJECT && instanceof_function_ex(Z_OBJCE_P(value), spl_ce_SplFileInfo, 0)) {
+	} else if (Z_TYPE_P(value) == IS_OBJECT && instanceof_function(Z_OBJCE_P(value), spl_ce_SplFileInfo)) {
 		ZVAL_COPY(&file, value);
 	}
 

@@ -327,7 +327,7 @@ static zend_always_inline void populate_error_info(zval *error)
 	zval tmp;
 
 	base = instanceof_function(Z_OBJCE_P(error), zend_ce_exception) ? zend_ce_exception : zend_ce_error;
-#if PHP_VERSION_ID >= 80000
+
 	if (0 != zval_get_long(zend_read_property_ex(base, Z_OBJ_P(error), ZSTR_KNOWN(ZEND_STR_LINE), 1, &tmp))) {
 		return;
 	}
@@ -343,39 +343,6 @@ static zend_always_inline void populate_error_info(zval *error)
 	Z_SET_REFCOUNT(tmp, 0);
 
 	zend_update_property_ex(base, Z_OBJ_P(error), ZSTR_KNOWN(ZEND_STR_TRACE), &tmp);
-#elif PHP_VERSION_ID < 70200
-	if (0 != zval_get_long(zend_read_property(base, error, SL("line"), 1, &tmp))) {
-		return;
-	}
-
-	ZVAL_STRING(&tmp, zend_get_executed_filename());
-	zend_update_property(base, error, SL("file"), &tmp);
-	zval_ptr_dtor(&tmp);
-
-	ZVAL_LONG(&tmp, zend_get_executed_lineno());
-	zend_update_property(base, error, SL("line"), &tmp);
-
-	zend_fetch_debug_backtrace(&tmp, 0, 0, 0);
-	Z_SET_REFCOUNT(tmp, 0);
-
-	zend_update_property(base, error, SL("trace"), &tmp);
-#else
-	if (0 != zval_get_long(zend_read_property_ex(base, error, ZSTR_KNOWN(ZEND_STR_LINE), 1, &tmp))) {
-		return;
-	}
-
-	ZVAL_STRING(&tmp, zend_get_executed_filename());
-	zend_update_property_ex(base, error, ZSTR_KNOWN(ZEND_STR_FILE), &tmp);
-	zval_ptr_dtor(&tmp);
-
-	ZVAL_LONG(&tmp, zend_get_executed_lineno());
-	zend_update_property_ex(base, error, ZSTR_KNOWN(ZEND_STR_LINE), &tmp);
-
-	zend_fetch_debug_backtrace(&tmp, 0, 0, 0);
-	Z_SET_REFCOUNT(tmp, 0);
-
-	zend_update_property_ex(base, error, ZSTR_KNOWN(ZEND_STR_TRACE), &tmp);
-#endif
 }
 
 static zend_always_inline void trigger_ops(async_task *task)
@@ -440,17 +407,13 @@ ASYNC_FIBER_CALLBACK run_task_fiber(void *arg)
 	EG(vm_stack) = stack;
 	EG(vm_stack_top) = stack->top;
 	EG(vm_stack_end) = stack->end;
-#if PHP_VERSION_ID >= 70300
+
 	EG(vm_stack_page_size) = ASYNC_FIBER_VM_STACK_SIZE;
-#endif
+
 	exec = (zend_execute_data *) EG(vm_stack_top);
 	EG(vm_stack_top) = (zval *) exec + ZEND_CALL_FRAME_SLOT;
 
-#if PHP_VERSION_ID < 70400
-	zend_vm_init_call_frame(exec, ZEND_CALL_TOP_FUNCTION, (zend_function *) &func, 0, NULL, NULL);
-#else
 	zend_vm_init_call_frame(exec, ZEND_CALL_TOP_FUNCTION, (zend_function *) &func, 0, NULL);
-#endif
 
 	exec->opline = run;
 	exec->call = NULL;
@@ -885,11 +848,9 @@ static void await_val(async_task *task, zval *val, INTERNAL_FUNCTION_PARAMETERS)
 	populate_error_info(&op->result);
 
 	execute_data->opline--;
-#if PHP_VERSION_ID >= 80000
+
 	zend_throw_exception_internal(Z_OBJ(op->result));
-#else
-	zend_throw_exception_internal(&op->result);
-#endif
+
 	execute_data->opline++;
 }
 
@@ -902,11 +863,7 @@ static int intercept_async_call(async_interceptor interceptor, async_context *co
 	zval error;
 	uint32_t i;
 
-#if PHP_VERSION_ID < 70400
-	call = zend_vm_stack_push_call_frame(ZEND_CALL_TOP_FUNCTION, fcc->function_handler, count, NULL, NULL);
-#else
 	call = zend_vm_stack_push_call_frame(ZEND_CALL_TOP_FUNCTION, fcc->function_handler, count, NULL);
-#endif
 
 	for (i = 0; i < count; i++) {
 		ZVAL_COPY(ZEND_CALL_ARG(call, i + 1), &params[i]);
@@ -1043,10 +1000,6 @@ static PHP_METHOD(Task, async)
 		}
 	}
 
-#if PHP_VERSION_ID < 80000
-	fci.no_separation = 1;
-#endif
-
 	if (count == 0) {
 		fci.param_count = 0;
 	} else {
@@ -1102,10 +1055,6 @@ static PHP_METHOD(Task, asyncWithContext)
 			}
 		}
 	}
-
-#if PHP_VERSION_ID < 80000
-	fci.no_separation = 1;
-#endif
 
 	if (count == 0) {
 		fci.param_count = 0;
@@ -1280,12 +1229,7 @@ static void async_task_scheduler_dispose(async_task_scheduler *scheduler)
 	ZEND_HASH_FOREACH_VAL(&scheduler->components, component) {
 		if (instanceof_function(Z_OBJCE_P(component), async_component_ce)) {
 			zend_try {
-
-#if PHP_VERSION_ID >= 80000
 				zend_call_method_with_0_params(Z_OBJ_P(component), Z_OBJCE_P(component), NULL, "shutdown", &error);
-#else
-				zend_call_method_with_0_params(component, Z_OBJCE_P(component), NULL, "shutdown", &error);
-#endif
 			} zend_catch {
 				async_task_scheduler_handle_exit(scheduler);
 			} zend_end_try();
@@ -1537,9 +1481,6 @@ static void run_ticks(async_task_scheduler *scheduler)
 		fci.size = sizeof(zend_fcall_info);
 		fci.object = event->fcc.object;
 
-#if PHP_VERSION_ID < 80000
-		fci.no_separation = 1;
-#endif
 		ZVAL_COPY_VALUE(&fci.function_name, &event->callback);
 
 		fci.params = args;
@@ -1738,9 +1679,6 @@ ASYNC_CALLBACK debug_pending_tasks(async_task_scheduler *scheduler, zend_fcall_i
 	fci->params = args;
 	fci->retval = &retval;
 
-#if PHP_VERSION_ID < 80000
-	fci->no_separation = 1;
-#endif
 	zend_call_function(fci, fcc);
 
 	zval_ptr_dtor(&args[0]);
@@ -2197,10 +2135,7 @@ static const zend_function_entry empty_funcs[] = {
 void async_task_ce_register()
 {
 	zend_class_entry ce;
-
-#if PHP_VERSION_ID >= 70400
 	zval tmp;
-#endif
 
 	str_main = zend_new_interned_string(zend_string_init(ZEND_STRL("main"), 1));
 	str_status = zend_new_interned_string(zend_string_init(ZEND_STRL("status"), 1));
@@ -2241,7 +2176,6 @@ void async_task_ce_register()
 	async_awaitable_impl_handlers.clone_obj = NULL;
 	async_awaitable_impl_handlers.write_property = async_prop_write_handler_readonly;
 
-#if PHP_VERSION_ID >= 80000
 	ZVAL_STRING(&tmp, "");
 	zend_declare_typed_property(async_awaitable_impl_ce, str_status, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_STRING, 0, 0));
 	zval_ptr_dtor(&tmp);
@@ -2249,19 +2183,6 @@ void async_task_ce_register()
 	ZVAL_NULL(&tmp);
 	zend_declare_typed_property(async_awaitable_impl_ce, str_file, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_STRING, 1, 0));
 	zend_declare_typed_property(async_awaitable_impl_ce, str_line, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_LONG, 0, 0));
-#elif PHP_VERSION_ID < 70400
-	zend_declare_property_null(async_awaitable_impl_ce, ZEND_STRL("status"), ZEND_ACC_PUBLIC);
-	zend_declare_property_null(async_awaitable_impl_ce, ZEND_STRL("file"), ZEND_ACC_PUBLIC);
-	zend_declare_property_null(async_awaitable_impl_ce, ZEND_STRL("line"), ZEND_ACC_PUBLIC);
-#else
-	ZVAL_STRING(&tmp, "");
-	zend_declare_typed_property(async_awaitable_impl_ce, str_status, &tmp, ZEND_ACC_PUBLIC, NULL, IS_STRING);
-	zval_ptr_dtor(&tmp);
-
-	ZVAL_NULL(&tmp);
-	zend_declare_typed_property(async_awaitable_impl_ce, str_file, &tmp, ZEND_ACC_PUBLIC, NULL, ZEND_TYPE_ENCODE(IS_STRING, 1));
-	zend_declare_typed_property(async_awaitable_impl_ce, str_line, &tmp, ZEND_ACC_PUBLIC, NULL, ZEND_TYPE_ENCODE(IS_LONG, 1));
-#endif
 
 	INIT_NS_CLASS_ENTRY(ce, "Dao\\Async", "Task", task_functions);
 	async_task_ce = zend_register_internal_class(&ce);
@@ -2275,7 +2196,6 @@ void async_task_ce_register()
 	async_task_handlers.clone_obj = NULL;
 	async_task_handlers.write_property = async_prop_write_handler_readonly;
 
-#if PHP_VERSION_ID >= 80000
 	ZVAL_STRING(&tmp, "");
 	zend_declare_typed_property(async_task_ce, str_status, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_STRING, 0, 0));
 	zval_ptr_dtor(&tmp);
@@ -2283,19 +2203,6 @@ void async_task_ce_register()
 	ZVAL_NULL(&tmp);
 	zend_declare_typed_property(async_task_ce, str_file, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_STRING, 1, 0));
 	zend_declare_typed_property(async_task_ce, str_line, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_LONG, 0, 0));
-#elif PHP_VERSION_ID < 70400
-	zend_declare_property_null(async_task_ce, ZEND_STRL("status"), ZEND_ACC_PUBLIC);
-	zend_declare_property_null(async_task_ce, ZEND_STRL("file"), ZEND_ACC_PUBLIC);
-	zend_declare_property_null(async_task_ce, ZEND_STRL("line"), ZEND_ACC_PUBLIC);
-#else
-	ZVAL_STRING(&tmp, "");
-	zend_declare_typed_property(async_task_ce, str_status, &tmp, ZEND_ACC_PUBLIC, NULL, IS_STRING);
-	zval_ptr_dtor(&tmp);
-
-	ZVAL_NULL(&tmp);
-	zend_declare_typed_property(async_task_ce, str_file, &tmp, ZEND_ACC_PUBLIC, NULL, ZEND_TYPE_ENCODE(IS_STRING, 1));
-	zend_declare_typed_property(async_task_ce, str_line, &tmp, ZEND_ACC_PUBLIC, NULL, ZEND_TYPE_ENCODE(IS_LONG, 1));
-#endif
 
 	INIT_NS_CLASS_ENTRY(ce, "Dao\\Async", "TaskScheduler", task_scheduler_functions);
 	async_task_scheduler_ce = zend_register_internal_class(&ce);

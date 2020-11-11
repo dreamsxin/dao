@@ -314,7 +314,7 @@ static const zend_function_entry dao_mvc_model_manager_method_entry[] = {
 	PHP_ME(Dao_Mvc_Model_Manager, registerNamespaceAlias, arginfo_dao_mvc_model_manager_registernamespacealias, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Mvc_Model_Manager, getNamespaceAlias, arginfo_dao_mvc_model_manager_getnamespacealias, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Mvc_Model_Manager, getNamespaceAliases, arginfo_empty, ZEND_ACC_PUBLIC)
-	PHP_ME(Dao_Mvc_Model_Manager, __destruct, arginfo_empty, ZEND_ACC_PUBLIC|ZEND_ACC_DTOR)
+	PHP_ME(Dao_Mvc_Model_Manager, __destruct, arginfo_empty, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 

@@ -521,22 +521,17 @@ void dao_get_object_vars(zval *result, zval *object, int check_access) {
 			return;
 		}
 
-#if PHP_VERSION_ID < 80000
-		properties = Z_OBJ_HT_P(object)->get_properties(object);
-#else
 		properties = Z_OBJ_HT_P(object)->get_properties(Z_OBJ_P(object));
-#endif
+
 		if (properties == NULL) {
 			ZVAL_NULL(result);
 			return;
 		}
 
 		zobj = Z_OBJ_P(object);
-#if PHP_VERSION_ID < 70300
-		if (!zobj->ce->default_properties_count && properties == zobj->properties && !ZEND_HASH_GET_APPLY_COUNT(properties)) {
-#else
+
 		if (!zobj->ce->default_properties_count && properties == zobj->properties && !GC_IS_RECURSIVE(properties)) {
-#endif
+
 			fast_copy = 1;
 			/* Check if the object has a numeric property, See Bug 73998 */
 			ZEND_HASH_FOREACH_STR_KEY(properties, key) {
@@ -550,11 +545,7 @@ void dao_get_object_vars(zval *result, zval *object, int check_access) {
 		if (fast_copy) {
 			if (EXPECTED(zobj->handlers == &std_object_handlers)) {
 				if (EXPECTED(!(GC_FLAGS(properties) & IS_ARRAY_IMMUTABLE))) {
-#if PHP_VERSION_ID >= 70300
 					GC_ADDREF(properties);
-#else
-					GC_REFCOUNT(properties)++;
-#endif
 				}
 				ZVAL_ARR(result, properties);
 				return;
@@ -567,7 +558,7 @@ void dao_get_object_vars(zval *result, zval *object, int check_access) {
 
 		ZEND_HASH_FOREACH_KEY_VAL(properties, num_key, key, value) {
 			zend_bool is_dynamic = 0;
-#if PHP_VERSION_ID >= 70400
+
 			is_dynamic = 1;
 			if (Z_TYPE_P(value) == IS_INDIRECT) {
 				value = Z_INDIRECT_P(value);
@@ -579,10 +570,7 @@ void dao_get_object_vars(zval *result, zval *object, int check_access) {
 			}
 
 			if (check_access && key && zend_check_property_access(zobj, key, is_dynamic) == FAILURE) {
-#else
-			if (check_access && key && zend_check_property_access(zobj, key) == FAILURE) {
 				continue;
-#endif
 			}
 			if (Z_ISREF_P(value) && Z_REFCOUNT_P(value) == 1) {
 				value = Z_REFVAL_P(value);
@@ -610,9 +598,7 @@ void dao_get_object_vars(zval *result, zval *object, int check_access) {
  * Returns an array of object propertie names
  */
 void dao_get_object_members(zval *result, zval *object, int check_access) {
-#if PHP_VERSION_ID >= 70400
 	zval *value;
-#endif
 	HashTable *properties;
 	zend_string *key;
 	zend_ulong num_key;
@@ -625,11 +611,7 @@ void dao_get_object_members(zval *result, zval *object, int check_access) {
 			return;
 		}
 
-#if PHP_VERSION_ID >= 80000
 		properties = Z_OBJ_HT_P(object)->get_properties(Z_OBJ_P(object));
-#else
-		properties = Z_OBJ_HT_P(object)->get_properties(object);
-#endif
 		if (properties == NULL) {
 			ZVAL_NULL(result);
 			return;
@@ -638,13 +620,11 @@ void dao_get_object_members(zval *result, zval *object, int check_access) {
 		zobj = Z_OBJ_P(object);
 
 		array_init(result);
-#if PHP_VERSION_ID >= 70400
+
 		ZEND_HASH_FOREACH_KEY_VAL(properties, num_key, key, value) {
-#else
-		ZEND_HASH_FOREACH_KEY(properties, num_key, key) {
-#endif
+
 			zend_bool is_dynamic = 0;
-#if PHP_VERSION_ID >= 70400
+
 			is_dynamic = 1;
 			if (Z_TYPE_P(value) == IS_INDIRECT) {
 				value = Z_INDIRECT_P(value);
@@ -656,9 +636,6 @@ void dao_get_object_members(zval *result, zval *object, int check_access) {
 			}
 
 			if (check_access && key && zend_check_property_access(zobj, key, is_dynamic) == FAILURE) {
-#else
-			if (check_access && key && zend_check_property_access(zobj, key) == FAILURE) {
-#endif
 				continue;
 			}
 			if (UNEXPECTED(!key)) {
@@ -676,25 +653,6 @@ void dao_get_object_members(zval *result, zval *object, int check_access) {
 		php_error_docref(NULL, E_WARNING, "dao_get_object_members expects an object");
 	}
 }
-
-#if PHP_VERSION_ID < 80000
-static int same_name(zend_string *key, zend_string *name) /* {{{ */
-{
-	zend_string *lcname;
-	int ret;
-
-	if (key == name) {
-		return 1;
-	}
-	if (ZSTR_LEN(key) != ZSTR_LEN(name)) {
-		return 0;
-	}
-	lcname = zend_string_tolower(name);
-	ret = memcmp(ZSTR_VAL(lcname), ZSTR_VAL(key), ZSTR_LEN(key)) == 0;
-	zend_string_release(lcname);
-	return ret;
-}
-#endif
 
 /**
  * Returns an array of method names for class or class instance
@@ -720,13 +678,8 @@ void dao_get_class_methods(zval *return_value, zval *object, int check_access) {
 	array_init(return_value);
 
 	if (check_access) {
-#if PHP_VERSION_ID < 70100
-		zend_class_entry *scope = EG(scope);
-#else
 		zend_class_entry *scope = zend_get_executed_scope();
-#endif
 
-#if PHP_VERSION_ID >= 80000
 		ZEND_HASH_FOREACH_PTR(&ce->function_table, mptr) {
 			if ((mptr->common.fn_flags & ZEND_ACC_PUBLIC)
 			 || (scope &&
@@ -739,71 +692,14 @@ void dao_get_class_methods(zval *return_value, zval *object, int check_access) {
 				zend_hash_next_index_insert_new(Z_ARRVAL_P(return_value), &method_name);
 			}
 		} ZEND_HASH_FOREACH_END();
-#else
-		zend_string *key;
-		ZEND_HASH_FOREACH_STR_KEY_PTR(&ce->function_table, key, mptr) {
 
-			if ((mptr->common.fn_flags & ZEND_ACC_PUBLIC)
-			 || (scope &&
-				 (((mptr->common.fn_flags & ZEND_ACC_PROTECTED) &&
-				   zend_check_protected(mptr->common.scope, scope))
-			   || ((mptr->common.fn_flags & ZEND_ACC_PRIVATE) &&
-				   scope == mptr->common.scope)))) {
-				size_t len = ZSTR_LEN(mptr->common.function_name);
-
-				/* Do not display old-style inherited constructors */
-				if (!key) {
-					ZVAL_STR_COPY(&method_name, mptr->common.function_name);
-					zend_hash_next_index_insert_new(Z_ARRVAL_P(return_value), &method_name);
-				} else if ((mptr->common.fn_flags & ZEND_ACC_CTOR) == 0 ||
-					mptr->common.scope == ce ||
-					zend_binary_strcasecmp(ZSTR_VAL(key), ZSTR_LEN(key), ZSTR_VAL(mptr->common.function_name), len) == 0) {
-
-					if (mptr->type == ZEND_USER_FUNCTION &&
-						(!mptr->op_array.refcount || *mptr->op_array.refcount > 1) &&
-						 !same_name(key, mptr->common.function_name)) {
-						ZVAL_STR_COPY(&method_name, zend_find_alias_name(mptr->common.scope, key));
-						zend_hash_next_index_insert_new(Z_ARRVAL_P(return_value), &method_name);
-					} else {
-						ZVAL_STR_COPY(&method_name, mptr->common.function_name);
-						zend_hash_next_index_insert_new(Z_ARRVAL_P(return_value), &method_name);
-					}
-				}
-			}
-		} ZEND_HASH_FOREACH_END();
-#endif
 	} else {
 
-#if PHP_VERSION_ID >= 80000
 		ZEND_HASH_FOREACH_PTR(&ce->function_table, mptr) {
 			ZVAL_STR_COPY(&method_name, mptr->common.function_name);
 			zend_hash_next_index_insert_new(Z_ARRVAL_P(return_value), &method_name);
 		} ZEND_HASH_FOREACH_END();
-#else
-		zend_string *key;
-		ZEND_HASH_FOREACH_STR_KEY_PTR(&ce->function_table, key, mptr) {
-			size_t len = ZSTR_LEN(mptr->common.function_name);
 
-			/* Do not display old-style inherited constructors */
-			if (!key) {
-				ZVAL_STR_COPY(&method_name, mptr->common.function_name);
-				zend_hash_next_index_insert_new(Z_ARRVAL_P(return_value), &method_name);
-			} else if ((mptr->common.fn_flags & ZEND_ACC_CTOR) == 0 ||
-				mptr->common.scope == ce ||
-				zend_binary_strcasecmp(ZSTR_VAL(key), ZSTR_LEN(key), ZSTR_VAL(mptr->common.function_name), len) == 0) {
-
-				if (mptr->type == ZEND_USER_FUNCTION &&
-					(!mptr->op_array.refcount || *mptr->op_array.refcount > 1) &&
-					 !zend_string_equals_ci(key, mptr->common.function_name)) {
-					ZVAL_STR_COPY(&method_name, zend_find_alias_name(mptr->common.scope, key));
-					zend_hash_next_index_insert_new(Z_ARRVAL_P(return_value), &method_name);
-				} else {
-					ZVAL_STR_COPY(&method_name, mptr->common.function_name);
-					zend_hash_next_index_insert_new(Z_ARRVAL_P(return_value), &method_name);
-				}
-			}
-		} ZEND_HASH_FOREACH_END();
-#endif
 	}
 }
 
@@ -858,7 +754,6 @@ zend_class_entry* dao_get_internal_ce(const char *class_name, unsigned int class
     return temp_ce;
 }
 
-#if PHP_VERSION_ID >= 70400
 static inline zend_class_entry *dao_class_exists_impl(zend_string *name, zend_bool autoload, int flags, int skip_flags)
 {
 	zend_string *lcname;
@@ -885,25 +780,13 @@ static inline zend_class_entry *dao_class_exists_impl(zend_string *name, zend_bo
 		return NULL;
 	}
 }
-#endif
 
 /**
  * Checks if a class exist
  */
 zend_class_entry *dao_class_exists(const zval *class_name, int autoload) {
 
-#if PHP_VERSION_ID >= 70400
 	return dao_class_exists_impl(Z_STR_P(class_name), autoload, 0, ZEND_ACC_INTERFACE | ZEND_ACC_TRAIT);
-#else
-	zend_class_entry *ce;
-	if (Z_TYPE_P(class_name) == IS_STRING) {
-		if ((ce = zend_lookup_class_ex(Z_STR_P(class_name), NULL, autoload)) != NULL) {
-			return (ce->ce_flags & (ZEND_ACC_INTERFACE | ZEND_ACC_TRAIT)) == 0 ? ce : NULL;
-		}
-	}
-#endif
-
-	return NULL;
 }
 
 zend_class_entry *dao_class_exists_ex(const zval *class_name, int autoload) {
@@ -967,11 +850,8 @@ int dao_clone(zval *destination, zval *obj) {
 			}
 		} else {
 
-#if PHP_VERSION_ID >= 80000
 			ZVAL_OBJ(destination, clone_call(Z_OBJ_P(obj)));
-#else
-			ZVAL_OBJ(destination, clone_call(obj));
-#endif
+
 			if (EG(exception)) {
 				ZVAL_NULL(destination);
 			} else {
@@ -1068,11 +948,7 @@ int dao_property_exists(zval *object, const char *property_name, uint32_t proper
 		}
 
 		if (likely((flags & PH_DYNAMIC) == PH_DYNAMIC)) {
-#if PHP_VERSION_ID >= 80000
 			return zend_hash_str_exists(Z_OBJ_HT_P(object)->get_properties(Z_OBJ_P(object)), property_name, property_length);
-#else
-			return zend_hash_str_exists(Z_OBJ_HT_P(object)->get_properties(object), property_name, property_length);
-#endif
 		}
 	}
 
@@ -1103,13 +979,9 @@ int dao_read_property(zval *result, zval *object, const char *property_name, uin
 		ce = dao_lookup_class_ce(ce, property_name, property_length);
 	}
 
-#if PHP_VERSION_ID >= 70100
 	old_scope = EG(fake_scope);
 	EG(fake_scope) = ce;
-#else
-	old_scope = EG(scope);
-	EG(scope) = ce;
-#endif
+
 	if (!Z_OBJ_HT_P(object)->read_property) {
 		const char *class_name;
 
@@ -1119,11 +991,8 @@ int dao_read_property(zval *result, zval *object, const char *property_name, uin
 
 	ZVAL_STRINGL(&property, property_name, property_length);
 
-#if PHP_VERSION_ID >= 80000
 	res = Z_OBJ_HT_P(object)->read_property(Z_OBJ_P(object), Z_STR(property), flags ? BP_VAR_IS : BP_VAR_R, NULL, &rv);
-#else
-	res = Z_OBJ_HT_P(object)->read_property(object, &property, flags ? BP_VAR_IS : BP_VAR_R, NULL, &rv);
-#endif
+
 	if ((flags & PH_SEPARATE) == PH_SEPARATE) {
 		ZVAL_COPY_VALUE(result, res);
 		DAO_SEPARATE(result);
@@ -1168,11 +1037,7 @@ int dao_update_property(zval *object, const char *property_name, uint32_t proper
 		ce = dao_lookup_class_ce(ce, property_name, property_length);
 	}
 
-#if PHP_VERSION_ID >= 70100
 	EG(fake_scope) = ce;
-#else
-	EG(scope) = ce;
-#endif
 
 	if (!Z_OBJ_HT_P(object)->write_property) {
 		const char *class_name;
@@ -1184,18 +1049,10 @@ int dao_update_property(zval *object, const char *property_name, uint32_t proper
 	ZVAL_STRINGL(&property, property_name, property_length);
 
 	/* write_property will add 1 to refcount, so no Z_TRY_ADDREF_P(value); is necessary */
-
-#if PHP_VERSION_ID >= 80000
 	Z_OBJ_HANDLER_P(object, write_property)(Z_OBJ_P(object), Z_STR(property), value, NULL);
-#else
-	Z_OBJ_HANDLER_P(object, write_property)(object, &property, value, NULL);
-#endif
 
-#if PHP_VERSION_ID >= 70100
 	EG(fake_scope) = old_scope;
-#else
-	EG(scope) = old_scope;
-#endif
+
 	zval_ptr_dtor(&property);
 	return SUCCESS;
 }
@@ -1830,11 +1687,8 @@ int dao_property_isset_fetch(zval *return_value, zval *object, const char *prope
 		ce = dao_lookup_class_ce(ce, property_name, property_length);
 	}
 
-#if PHP_VERSION_ID >= 80000
 	value = zend_read_property(ce, Z_OBJ_P(object), property_name, property_length, 1, NULL);
-#else
-	value = zend_read_property(ce, object, property_name, property_length, 1, NULL);
-#endif
+
 	if (EXPECTED(Z_TYPE_P(value) == IS_REFERENCE)) {
 		value = Z_REFVAL_P(value);
 	}

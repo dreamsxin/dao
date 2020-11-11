@@ -122,7 +122,7 @@ const zend_function_entry dao_registry_method_entry[] = {
 	PHP_ME(Dao_Registry, rewind, arginfo_iterator_rewind, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Registry, valid, arginfo_iterator_valid, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Registry, serialize, arginfo_serializable_serialize, ZEND_ACC_PUBLIC | ZEND_ACC_CTOR)
-	PHP_ME(Dao_Registry, unserialize, arginfo_serializable_unserialize, ZEND_ACC_PUBLIC | ZEND_ACC_DTOR)
+	PHP_ME(Dao_Registry, unserialize, arginfo_serializable_unserialize, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Registry, __wakeup, arginfo_empty, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };

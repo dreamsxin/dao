@@ -1224,13 +1224,7 @@ int dao_array_update_multi(zval *arr, zval *value, const char *types, int types_
 	return 0;
 }
 
-//typedef int (*bucket_compare_func_t)(Bucket *a, Bucket *b);
-
-#if PHP_VERSION_ID >= 80000
 static int dao_array_key_compare(Bucket *a, Bucket *b)
-#else
-static int dao_array_key_compare(const void *a, const void *b)
-#endif
 {
 	Bucket *f = (Bucket *) a;
 	Bucket *s = (Bucket *) b;
@@ -1272,10 +1266,7 @@ static int dao_array_key_compare(const void *a, const void *b)
 
 void dao_array_ksort(zval *arr, int reverse) {
 
-#if PHP_VERSION_ID < 80000
-	compare_func_t cmp = dao_array_key_compare;
-#else
 	bucket_compare_func_t cmp = dao_array_key_compare;
-#endif
+
 	zend_hash_sort(Z_ARRVAL_P(arr), cmp, 0);
 }

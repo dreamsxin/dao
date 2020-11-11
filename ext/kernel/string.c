@@ -273,11 +273,7 @@ void dao_fast_join(zval *result, zval *glue, zval *pieces){
 		return;
 	}
 
-#if PHP_VERSION_ID < 80000
-	php_implode(Z_STR_P(glue), pieces, result);
-#else
 	php_implode(Z_STR_P(glue), Z_ARRVAL_P(pieces), result);
-#endif
 }
 
 /**
@@ -1147,11 +1143,8 @@ void dao_fast_strip_tags(zval *return_value, zval *str)
 
 	stripped = estrndup(Z_STRVAL_P(str), Z_STRLEN_P(str));
 
-#if PHP_VERSION_ID < 80000
-	len = php_strip_tags(stripped, Z_STRLEN_P(str), NULL, NULL, 0);
-#else
 	len = php_strip_tags(stripped, Z_STRLEN_P(str), NULL, 0);
-#endif
+
 	ZVAL_STRINGL(return_value, stripped, len);
 }
 
@@ -1611,7 +1604,6 @@ void dao_fast_str_replace(zval *return_value, zval *search, zval *replace, zval 
 	}
 }
 
-#if PHP_VERSION_ID >= 70300
 static zend_string *php_pcre_replace_array(HashTable *regex, zval *replace, zend_string *subject_str, size_t limit, size_t *replace_count)
 {
 	zval		*regex_entry;
@@ -1716,269 +1708,12 @@ static zend_always_inline zend_string *php_replace_in_subject(zval *regex, zval 
 	}
 	return result;
 }
-#else
-# if PHP_VERSION_ID >= 70200
-static zend_string *php_pcre_replace_array(HashTable *regex, zval *replace, zend_string *subject_str, int limit, int *replace_count)
-{
-	zval		*regex_entry;
-	zend_string *result;
-	zend_string *replace_str;
-
-	if (Z_TYPE_P(replace) == IS_ARRAY) {
-		uint32_t replace_idx = 0;
-		HashTable *replace_ht = Z_ARRVAL_P(replace);
-
-		/* For each entry in the regex array, get the entry */
-		ZEND_HASH_FOREACH_VAL(regex, regex_entry) {
-			/* Make sure we're dealing with strings. */
-			zend_string *regex_str = zval_get_string(regex_entry);
-			zval *zv;
-
-			/* Get current entry */
-			while (1) {
-				if (replace_idx == replace_ht->nNumUsed) {
-					replace_str = ZSTR_EMPTY_ALLOC();
-					break;
-				}
-				zv = &replace_ht->arData[replace_idx].val;
-				replace_idx++;
-				if (Z_TYPE_P(zv) != IS_UNDEF) {
-					replace_str = zval_get_string(zv);
-					break;
-				}
-			}
-
-			/* Do the actual replacement and put the result back into subject_str
-			   for further replacements. */
-			result = php_pcre_replace(regex_str,
-									  subject_str,
-									  ZSTR_VAL(subject_str),
-									  (int)ZSTR_LEN(subject_str),
-									  replace_str,
-									  limit,
-									  replace_count);
-			zend_string_release(replace_str);
-			zend_string_release(regex_str);
-			zend_string_release(subject_str);
-			subject_str = result;
-			if (UNEXPECTED(result == NULL)) {
-				break;
-			}
-		} ZEND_HASH_FOREACH_END();
-
-	} else {
-		replace_str = Z_STR_P(replace);
-
-		/* For each entry in the regex array, get the entry */
-		ZEND_HASH_FOREACH_VAL(regex, regex_entry) {
-			/* Make sure we're dealing with strings. */
-			zend_string *regex_str = zval_get_string(regex_entry);
-
-			/* Do the actual replacement and put the result back into subject_str
-			   for further replacements. */
-			result = php_pcre_replace(regex_str,
-									  subject_str,
-									  ZSTR_VAL(subject_str),
-									  (int)ZSTR_LEN(subject_str),
-									  replace_str,
-									  limit,
-									  replace_count);
-			zend_string_release(regex_str);
-			zend_string_release(subject_str);
-			subject_str = result;
-
-			if (UNEXPECTED(result == NULL)) {
-				break;
-			}
-		} ZEND_HASH_FOREACH_END();
-	}
-
-	return subject_str;
-}
-
-static zend_always_inline zend_string *php_replace_in_subject(zval *regex, zval *replace, zval *subject, int limit, int *replace_count)
-{
-	zend_string *result;
-	zend_string *subject_str = zval_get_string(subject);
-
-	if (UNEXPECTED(ZEND_SIZE_T_INT_OVFL(ZSTR_LEN(subject_str)))) {
-		zend_string_release(subject_str);
-		php_error_docref(NULL, E_WARNING, "Subject is too long");
-		result = NULL;
-	} else if (Z_TYPE_P(regex) != IS_ARRAY) {
-		result = php_pcre_replace(Z_STR_P(regex),
-								  subject_str,
-								  ZSTR_VAL(subject_str),
-								  (int)ZSTR_LEN(subject_str),
-								  Z_STR_P(replace),
-								  limit,
-								  replace_count);
-		zend_string_release(subject_str);
-	} else {
-		result = php_pcre_replace_array(Z_ARRVAL_P(regex),
-										replace,
-										subject_str,
-										limit,
-										replace_count);
-	}
-	return result;
-}
-# else
-static zend_string *php_replace_in_subject(zval *regex, zval *replace, zval *subject, int limit, int is_callable_replace, int *replace_count)
-{
-	zval		*regex_entry,
-				*replace_value,
-				 empty_replace;
-	zend_string *result;
-	uint32_t replace_idx;
-	zend_string	*subject_str = zval_get_string(subject);
-
-	/* FIXME: This might need to be changed to ZSTR_EMPTY_ALLOC(). Check if this zval could be dtor()'ed somehow */
-	ZVAL_EMPTY_STRING(&empty_replace);
-
-	if (ZEND_SIZE_T_INT_OVFL(ZSTR_LEN(subject_str))) {
-			php_error_docref(NULL, E_WARNING, "Subject is too long");
-			return NULL;
-	}
-
-	/* If regex is an array */
-	if (Z_TYPE_P(regex) == IS_ARRAY) {
-		replace_value = replace;
-		replace_idx = 0;
-
-		/* For each entry in the regex array, get the entry */
-		ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(regex), regex_entry) {
-			zval replace_str;
-			/* Make sure we're dealing with strings. */
-			zend_string *regex_str = zval_get_string(regex_entry);
-
-			ZVAL_UNDEF(&replace_str);
-			/* If replace is an array and not a callable construct */
-			if (Z_TYPE_P(replace) == IS_ARRAY && !is_callable_replace) {
-				/* Get current entry */
-				while (replace_idx < Z_ARRVAL_P(replace)->nNumUsed) {
-					if (Z_TYPE(Z_ARRVAL_P(replace)->arData[replace_idx].val) != IS_UNDEF) {
-						ZVAL_COPY(&replace_str, &Z_ARRVAL_P(replace)->arData[replace_idx].val);
-						break;
-					}
-					replace_idx++;
-				}
-				if (!Z_ISUNDEF(replace_str)) {
-					if (!is_callable_replace) {
-						convert_to_string(&replace_str);
-					}
-					replace_value = &replace_str;
-					replace_idx++;
-				} else {
-					/* We've run out of replacement strings, so use an empty one */
-					replace_value = &empty_replace;
-				}
-			}
-
-			/* Do the actual replacement and put the result back into subject_str
-			   for further replacements. */
-			if ((result = php_pcre_replace(regex_str,
-										   subject_str,
-										   ZSTR_VAL(subject_str),
-										   (int)ZSTR_LEN(subject_str),
-										   replace_value,
-										   is_callable_replace,
-										   limit,
-										   replace_count)) != NULL) {
-				zend_string_release(subject_str);
-				subject_str = result;
-			} else {
-				zend_string_release(subject_str);
-				zend_string_release(regex_str);
-				zval_dtor(&replace_str);
-				return NULL;
-			}
-
-			zend_string_release(regex_str);
-			zval_dtor(&replace_str);
-		} ZEND_HASH_FOREACH_END();
-
-		return subject_str;
-	} else {
-		result = php_pcre_replace(Z_STR_P(regex),
-								  subject_str,
-								  ZSTR_VAL(subject_str),
-								  (int)ZSTR_LEN(subject_str),
-								  replace,
-								  is_callable_replace,
-								  limit,
-								  replace_count);
-		zend_string_release(subject_str);
-		return result;
-	}
-}
-
-static int preg_replace_impl(zval *return_value, zval *regex, zval *replace, zval *subject, zend_long limit_val, int is_callable_replace, int is_filter)
-{
-	zval		*subject_entry;
-	zend_string	*result;
-	zend_string	*string_key;
-	zend_ulong	 num_key;
-	int			 replace_count = 0, old_replace_count;
-
-	if (Z_TYPE_P(replace) != IS_ARRAY && (Z_TYPE_P(replace) != IS_OBJECT || !is_callable_replace)) {
-		convert_to_string_ex(replace);
-	}
-
-	if (Z_TYPE_P(regex) != IS_ARRAY) {
-		convert_to_string_ex(regex);
-	}
-
-	/* if subject is an array */
-	if (Z_TYPE_P(subject) == IS_ARRAY) {
-		array_init_size(return_value, zend_hash_num_elements(Z_ARRVAL_P(subject)));
-
-		/* For each subject entry, convert it to string, then perform replacement
-		   and add the result to the return_value array. */
-		ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL_P(subject), num_key, string_key, subject_entry) {
-			old_replace_count = replace_count;
-			if ((result = php_replace_in_subject(regex, replace, subject_entry, limit_val, is_callable_replace, &replace_count)) != NULL) {
-				if (!is_filter || replace_count > old_replace_count) {
-					/* Add to return array */
-					zval zv;
-
-					ZVAL_STR(&zv, result);
-					if (string_key) {
-						zend_hash_add_new(Z_ARRVAL_P(return_value), string_key, &zv);
-					} else {
-						zend_hash_index_add_new(Z_ARRVAL_P(return_value), num_key, &zv);
-					}
-				} else {
-					zend_string_release(result);
-				}
-			}
-		} ZEND_HASH_FOREACH_END();
-	} else {
-		/* if subject is not an array */
-		old_replace_count = replace_count;
-		if ((result = php_replace_in_subject(regex, replace, subject, limit_val, is_callable_replace, &replace_count)) != NULL) {
-			if (!is_filter || replace_count > old_replace_count) {
-				RETVAL_STR(result);
-			} else {
-				zend_string_release(result);
-				RETVAL_NULL();
-			}
-		} else {
-			RETVAL_NULL();
-		}
-	}
-
-	return replace_count;
-}
-# endif
-#endif
 
 /**
  * Immediate function resolution for preg_replace function
  */
 void dao_fast_preg_replace(zval *return_value, zval *regex, zval *replace, zval *subject)
 {
-#if PHP_VERSION_ID >= 70300
 	zval *zcount = NULL;
 	zend_long limit = -1;
 	size_t replace_count = 0;
@@ -2052,92 +1787,6 @@ void dao_fast_preg_replace(zval *return_value, zval *regex, zval *replace, zval 
 		zval_ptr_dtor(zcount);
 		ZVAL_LONG(zcount, replace_count);
 	}
-#else
-# if PHP_VERSION_ID >= 70200
-	zend_long limit = -1;
-	int replace_count = 0;
-	zend_string	*result;
-	int old_replace_count;
-	int is_filter = 0;
-	if (Z_TYPE_P(replace) != IS_ARRAY) {
-		convert_to_string_ex(replace);
-		if (Z_TYPE_P(regex) != IS_ARRAY) {
-			convert_to_string_ex(regex);
-		}
-	} else {
-		if (Z_TYPE_P(regex) != IS_ARRAY) {
-			php_error_docref(NULL, E_WARNING, "Parameter mismatch, pattern is a string while replacement is an array");
-			RETURN_FALSE;
-		}
-	}
-
-	if (Z_TYPE_P(subject) != IS_ARRAY) {
-		old_replace_count = replace_count;
-		result = php_replace_in_subject(regex,
-										replace,
-										subject,
-										limit,
-										&replace_count);
-		if (result != NULL) {
-			if (!is_filter || replace_count > old_replace_count) {
-				RETVAL_STR(result);
-			} else {
-				zend_string_release(result);
-				RETVAL_NULL();
-			}
-		} else {
-			RETVAL_NULL();
-		}
-	} else {
-		/* if subject is an array */
-		zval		*subject_entry, zv;
-		zend_string	*string_key;
-		zend_ulong	 num_key;
-
-		array_init_size(return_value, zend_hash_num_elements(Z_ARRVAL_P(subject)));
-
-		/* For each subject entry, convert it to string, then perform replacement
-		   and add the result to the return_value array. */
-		ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL_P(subject), num_key, string_key, subject_entry) {
-			old_replace_count = replace_count;
-			result = php_replace_in_subject(regex,
-											replace,
-											subject_entry,
-											limit,
-											&replace_count);
-			if (result != NULL) {
-				if (!is_filter || replace_count > old_replace_count) {
-					/* Add to return array */
-					ZVAL_STR(&zv, result);
-					if (string_key) {
-						zend_hash_add_new(Z_ARRVAL_P(return_value), string_key, &zv);
-					} else {
-						zend_hash_index_add_new(Z_ARRVAL_P(return_value), num_key, &zv);
-					}
-				} else {
-					zend_string_release(result);
-				}
-			}
-		} ZEND_HASH_FOREACH_END();
-	}
-# else
-	zval *zcount = NULL;
-	zend_long limit = -1;
-	int replace_count;
-
-	if (Z_TYPE_P(replace) == IS_ARRAY && Z_TYPE_P(regex) != IS_ARRAY) {
-		php_error_docref(NULL, E_WARNING, "Parameter mismatch, pattern is a string while replacement is an array");
-		RETURN_FALSE;
-		return;
-	}
-
-	replace_count = preg_replace_impl(return_value, regex, replace, subject, limit, 0, 0);
-	if (zcount) {
-		zval_ptr_dtor(zcount);
-		ZVAL_LONG(zcount, replace_count);
-	}
-# endif
-#endif
 }
 
 void dao_pad_str(zval *return_value, zval *input, int pad_length, const char *pad_str, int pad_type)
@@ -2391,7 +2040,7 @@ void dao_random_string(zval *return_value, const zval *type, const zval *length)
 	}
 
 	for (i = 0; i < Z_LVAL_P(length); i++) {
-#if PHP_VERSION_ID >= 70200
+
 		switch (Z_LVAL_P(type)) {
 			case DAO_RANDOM_ALNUM:
 				rand_type = php_mt_rand_range(0, 3);
@@ -2431,58 +2080,9 @@ void dao_random_string(zval *return_value, const zval *type, const zval *length)
 			default:
 				continue;
 		}
-#else
-		switch (Z_LVAL_P(type)) {
-			case DAO_RANDOM_ALNUM:
-				rand_type = (long) (php_mt_rand() >> 1);
-				RAND_RANGE(rand_type, 0, 3, PHP_MT_RAND_MAX);
-				break;
-			case DAO_RANDOM_ALPHA:
-				rand_type = (long) (php_mt_rand() >> 1);
-				RAND_RANGE(rand_type, 1, 2, PHP_MT_RAND_MAX);
-				break;
-			case DAO_RANDOM_HEXDEC:
-				rand_type = (long) (php_mt_rand() >> 1);
-				RAND_RANGE(rand_type, 0, 1, PHP_MT_RAND_MAX);
-				break;
-			case DAO_RANDOM_NUMERIC:
-				rand_type = 0;
-				break;
-			case DAO_RANDOM_NOZERO:
-				rand_type = 5;
-				break;
-			default:
-				continue;
-		}
 
-		switch (rand_type) {
-			case 0:
-				ch = (long) (php_mt_rand() >> 1);
-				RAND_RANGE(ch, '0', '9', PHP_MT_RAND_MAX);
-				break;
-			case 1:
-				ch = (long) (php_mt_rand() >> 1);
-				RAND_RANGE(ch, 'a', 'f', PHP_MT_RAND_MAX);
-				break;
-			case 2:
-				ch = (long) (php_mt_rand() >> 1);
-				RAND_RANGE(ch, 'a', 'z', PHP_MT_RAND_MAX);
-				break;
-			case 3:
-				ch = (long) (php_mt_rand() >> 1);
-				RAND_RANGE(ch, 'A', 'Z', PHP_MT_RAND_MAX);
-				break;
-			case 5:
-				ch = (long) (php_mt_rand() >> 1);
-				RAND_RANGE(ch, '1', '9', PHP_MT_RAND_MAX);
-				break;
-			default:
-				continue;
-		}
-#endif
 		smart_str_appendc(&random_str, (unsigned int) ch);
 	}
-
 
 	smart_str_0(&random_str);
 
@@ -2808,13 +2408,8 @@ int dao_preg_match(zval *retval, zval *regex, zval *subject, zval *matches, zend
 		return FAILURE;
 	}
 
-	//pce->refcount++;
-#if PHP_VERSION_ID >= 70400
 	php_pcre_match_impl(pce, Z_STR_P(subject), retval, matches, global, use_flags, flags, start_offset);
-#else
-	php_pcre_match_impl(pce, Z_STRVAL_P(subject), Z_STRLEN_P(subject), retval, matches, global, use_flags, flags, start_offset);
-#endif
-	//pce->refcount--;
+
 	return SUCCESS;
 }
 
@@ -2943,7 +2538,6 @@ int dao_http_build_query(zval *return_value, zval *params, char *sep)
 		return FAILURE;
 	}
 
-#if PHP_VERSION_ID >= 80000
 	php_url_encode_hash_ex(HASH_OF(params), &formstr, NULL, 0, NULL, 0, NULL, 0, (Z_TYPE_P(params) == IS_OBJECT ? params : NULL), sep, PHP_QUERY_RFC1738);
 	if (!formstr.s) {
 		ZVAL_EMPTY_STRING(return_value);
@@ -2951,21 +2545,7 @@ int dao_http_build_query(zval *return_value, zval *params, char *sep)
 		smart_str_0(&formstr);
 		ZVAL_NEW_STR(return_value, formstr.s);
 	}
-#else
-	int res = php_url_encode_hash_ex(HASH_OF(params), &formstr, NULL, 0, NULL, 0, NULL, 0, (Z_TYPE_P(params) == IS_OBJECT ? params : NULL), sep, PHP_QUERY_RFC1738);
 
-	if (res == FAILURE) {
-		smart_str_free(&formstr);
-		ZVAL_FALSE(return_value);
-		return FAILURE;
-	}
-	if (!formstr.s) {
-		ZVAL_EMPTY_STRING(return_value);
-	} else {
-		smart_str_0(&formstr);
-		ZVAL_NEW_STR(return_value, formstr.s);
-	}
-#endif
 	return SUCCESS;
 }
 
@@ -2986,11 +2566,8 @@ void dao_htmlspecialchars(zval *return_value, zval *string, zval *quoting, zval 
 	cs = (charset && Z_TYPE_P(charset) == IS_STRING) ? Z_STRVAL_P(charset) : NULL;
 	qs = (quoting && Z_TYPE_P(quoting) == IS_LONG)   ? Z_LVAL_P(quoting)   : ENT_COMPAT;
 
-#if PHP_VERSION_ID >= 80000
 	escaped = php_escape_html_entities_ex((unsigned char *)(Z_STRVAL_P(string)), Z_STRLEN_P(string), 0, qs, cs, /* double_encode */ 1, /* quiet */ 1);
-#else
-	escaped = php_escape_html_entities_ex((unsigned char *)(Z_STRVAL_P(string)), Z_STRLEN_P(string), 0, qs, cs, 1);
-#endif
+
 	ZVAL_STR(return_value, escaped);
 
 	if (unlikely(use_copy)) {
@@ -3014,11 +2591,9 @@ void dao_htmlentities(zval *return_value, zval *string, zval *quoting, zval *cha
 
 	cs = (charset && Z_TYPE_P(charset) == IS_STRING) ? Z_STRVAL_P(charset) : NULL;
 	qs = (quoting && Z_TYPE_P(quoting) == IS_LONG)   ? Z_LVAL_P(quoting)   : ENT_COMPAT;
-#if PHP_VERSION_ID >= 80000
+
 	escaped = php_escape_html_entities_ex((unsigned char *)(Z_STRVAL_P(string)), Z_STRLEN_P(string), 0, qs, cs, /* double_encode */ 1, /* quiet */ 1);
-#else
-	escaped = php_escape_html_entities_ex((unsigned char *)(Z_STRVAL_P(string)), Z_STRLEN_P(string), 1, qs, cs, 1);
-#endif
+
 	ZVAL_STR(return_value, escaped);
 
 	if (unlikely(use_copy)) {
@@ -3077,11 +2652,7 @@ void dao_addslashes(zval *return_value, zval *str)
 		}
 	}
 
-#if PHP_VERSION_ID < 70300
-	ZVAL_STR(return_value, php_addslashes(Z_STR_P(str), 0));
-#else
 	ZVAL_STR(return_value, php_addslashes(Z_STR_P(str)));
-#endif
 
 	if (unlikely(use_copy)) {
 		zval_ptr_dtor(&copy);

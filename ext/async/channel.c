@@ -22,13 +22,6 @@
 #include "kernel/backend.h"
 #include <ext/standard/php_mt_rand.h>
 
-#if PHP_VERSION_ID < 70200
-#include <ext/spl/spl_iterators.h>
-#ifndef zend_ce_countable
-#define zend_ce_countable     spl_ce_Countable
-#endif
-#endif
-
 ASYNC_API zend_class_entry *async_channel_ce;
 ASYNC_API zend_class_entry *async_channel_closed_exception_ce;
 ASYNC_API zend_class_entry *async_channel_group_ce;
@@ -208,11 +201,9 @@ static zend_always_inline void forward_error(zval *cause, zend_execute_data *exe
 	EG(current_execute_data) = exec;
 
 	exec->opline--;
-#if PHP_VERSION_ID >= 80000
+
 	zend_throw_exception_internal(Z_OBJ(error));
-#else
-	zend_throw_exception_internal(&error);
-#endif
+
 	exec->opline++;
 
 	EG(current_execute_data) = prev;
@@ -788,13 +779,8 @@ static PHP_METHOD(ChannelGroup, __construct)
 				return;
 			}
 
-#if PHP_VERSION_ID >= 80000
 			zend_call_method_with_0_params(Z_OBJ_P(entry), Z_OBJCE_P(entry), &Z_OBJCE_P(entry)->iterator_funcs_ptr->zf_new_iterator, "getiterator", &tmp);
-#elif PHP_VERSION_ID >= 70300
-			zend_call_method_with_0_params(entry, Z_OBJCE_P(entry), &Z_OBJCE_P(entry)->iterator_funcs_ptr->zf_new_iterator, "getiterator", &tmp);
-#else
-			zend_call_method_with_0_params(entry, Z_OBJCE_P(entry), &Z_OBJCE_P(entry)->iterator_funcs.zf_new_iterator, "getiterator", &tmp);
-#endif
+
 			if (UNEXPECTED(EG(exception) || Z_TYPE_P(&tmp) != IS_OBJECT || !instanceof_function(Z_OBJCE_P(&tmp), async_channel_iterator_ce))) {
 				ASYNC_ENSURE_ERROR("Aggregated iterator is not a channel iterator");
 				zval_ptr_dtor(&tmp);

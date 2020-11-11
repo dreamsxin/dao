@@ -109,29 +109,12 @@ int _dao_exec(zval* ret, zval *object, zend_op_array *op_array, zend_array *symb
 		op_array->scope = Z_OBJCE_P(object);
 	} else {
 		obj = zend_get_this_object(EG(current_execute_data));
-#if PHP_VERSION_ID >= 70100
 		op_array->scope = EG(fake_scope);
-#else
-		op_array->scope = EG(scope);
-#endif
 	}
 
-#if PHP_VERSION_ID >= 70400
 	call_info = ZEND_CALL_HAS_THIS | ZEND_CALL_NESTED_CODE | ZEND_CALL_HAS_SYMBOL_TABLE;
-#elif PHP_VERSION_ID >= 70100
-	call_info = ZEND_CALL_NESTED_CODE | ZEND_CALL_HAS_SYMBOL_TABLE;
-#else
-	call_info = ZEND_CALL_NESTED_CODE;
-#endif
 
-#if PHP_VERSION_ID >= 70400
 	call = zend_vm_stack_push_call_frame(call_info, func, 0, (obj ? obj : NULL));
-#elif PHP_VERSION_ID >= 70100
-	call = zend_vm_stack_push_call_frame(call_info, func, 0, op_array->scope, (obj ? obj : NULL));
-#else
-	call = zend_vm_stack_push_call_frame(ZEND_CALL_NESTED_CODE, func, 0, op_array->scope, (obj ? obj : NULL));
-#endif
-
 	call->symbol_table = symbol_table;
 
 	if (ret && php_output_start_user(NULL, 0, PHP_OUTPUT_HANDLER_STDFLAGS) == FAILURE) {
@@ -192,19 +175,11 @@ int dao_exec_file(zval *ret, zval *object, zval *file, zval *vars, zend_array *s
 		symbol_table = dao_build_symtable(vars);
 	}
 
-#if PHP_VERSION_ID < 70400
-	file_handle.filename = ZSTR_VAL(filename);
-	file_handle.free_filename = 0;
-	file_handle.type = ZEND_HANDLE_FILENAME;
-	file_handle.opened_path = NULL;
-	file_handle.handle.fp = NULL;
-#else
 	status = php_stream_open_for_zend_ex(ZSTR_VAL(filename), &file_handle, USE_PATH|STREAM_OPEN_FOR_INCLUDE);
 
 	if (status != SUCCESS) {
 		return FAILURE;
 	}
-#endif
 
 	op_array = zend_compile_file(&file_handle, ZEND_INCLUDE);
 
@@ -246,11 +221,8 @@ int dao_exec_code(zval *ret, zval *object, zval *code, zval * vars) {
 		/* eval require code mustn't be wrapped in opening and closing PHP tags */
 		ZVAL_STR(&phtml, strpprintf(0, "?>%s", Z_STRVAL_P(code)));
 
-#if PHP_VERSION_ID >= 80000
 		op_array = zend_compile_string(Z_STR(phtml), eval_desc);
-#else
-		op_array = zend_compile_string(&phtml, eval_desc);
-#endif
+
 		zval_ptr_dtor(&phtml);
 		efree(eval_desc);
 
@@ -284,19 +256,11 @@ int dao_require_ret(zval *return_value_ptr, const char *require_path)
 
 	ZVAL_UNDEF(&local_retval);
 
-#if PHP_VERSION_ID < 70400
-	file_handle.filename = require_path;
-	file_handle.free_filename = 0;
-	file_handle.type = ZEND_HANDLE_FILENAME;
-	file_handle.opened_path = NULL;
-	file_handle.handle.fp = NULL;
-#else
 	ret = php_stream_open_for_zend_ex(require_path, &file_handle, USE_PATH|STREAM_OPEN_FOR_INCLUDE);
 
 	if (ret != SUCCESS) {
 		return FAILURE;
 	}
-#endif
 
 	new_op_array = zend_compile_file(&file_handle, ZEND_REQUIRE);
 	if (new_op_array) {
@@ -311,11 +275,8 @@ int dao_require_ret(zval *return_value_ptr, const char *require_path)
 			zend_destroy_file_handle(&file_handle);
 		}
 
-#if PHP_VERSION_ID >= 70100
 		new_op_array->scope = EG(fake_scope) ? EG(fake_scope) : zend_get_executed_scope();
-#else
-		new_op_array->scope = EG(scope);
-#endif
+
 		zend_execute(new_op_array, &local_retval);
 
 		if (return_value_ptr) {

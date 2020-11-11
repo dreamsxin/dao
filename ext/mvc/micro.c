@@ -757,7 +757,7 @@ PHP_METHOD(Dao_Mvc_Micro, handle){
 			ZEND_HASH_FOREACH_VAL(Z_ARRVAL(before_handlers), before) {
 				int is_middleware;
 				if (Z_TYPE_P(before) == IS_OBJECT) {
-					is_middleware = instanceof_function_ex(Z_OBJCE_P(before), dao_mvc_micro_middlewareinterface_ce, 1);
+					is_middleware = instanceof_function(Z_OBJCE_P(before), dao_mvc_micro_middlewareinterface_ce);
 
 					if (is_middleware) {
 
@@ -835,7 +835,7 @@ PHP_METHOD(Dao_Mvc_Micro, handle){
 			ZEND_HASH_FOREACH_VAL(Z_ARRVAL(after_handlers), after) {
 				int is_middleware;
 				if (Z_TYPE_P(after) == IS_OBJECT) {
-					is_middleware = instanceof_function_ex(Z_OBJCE_P(after), dao_mvc_micro_middlewareinterface_ce, 1);
+					is_middleware = instanceof_function(Z_OBJCE_P(after), dao_mvc_micro_middlewareinterface_ce);
 					if (is_middleware) {
 
 						/**
@@ -921,7 +921,7 @@ PHP_METHOD(Dao_Mvc_Micro, handle){
 			 * Try to execute middleware as plugins
 			 */
 			if (Z_TYPE_P(finish) == IS_OBJECT) {
-				int is_middleware = instanceof_function_ex(Z_OBJCE_P(finish), dao_mvc_micro_middlewareinterface_ce, 1);
+				int is_middleware = instanceof_function(Z_OBJCE_P(finish), dao_mvc_micro_middlewareinterface_ce);
 				if (is_middleware) {
 
 					/**
@@ -980,7 +980,7 @@ PHP_METHOD(Dao_Mvc_Micro, handle){
 	 * Check if the returned object is already a response
 	 */
 	if (Z_TYPE_P(return_value) == IS_OBJECT) {
-		int returned_response = instanceof_function_ex(Z_OBJCE_P(return_value), dao_http_responseinterface_ce, 1);
+		int returned_response = instanceof_function(Z_OBJCE_P(return_value), dao_http_responseinterface_ce);
 
 		if (returned_response) {
 			DAO_MM_CALL_METHOD(&returned_response_sent, return_value, "issent");
@@ -1162,7 +1162,7 @@ PHP_METHOD(Dao_Mvc_Micro, _throwException){
 
 	DAO_MM_CALL_USER_FUNC_ARRAY(return_value, &handler, &arguments);
 
-	if (Z_TYPE_P(return_value) != IS_OBJECT || !instanceof_function_ex(Z_OBJCE_P(return_value), dao_http_responseinterface_ce, 1)) {
+	if (Z_TYPE_P(return_value) != IS_OBJECT || !instanceof_function(Z_OBJCE_P(return_value), dao_http_responseinterface_ce)) {
 		DAO_MM_THROW_EXCEPTION_ZVAL(dao_mvc_micro_exception_ce, message);
 		return;
 	} else {

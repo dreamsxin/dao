@@ -173,7 +173,7 @@ static PHP_MINIT_FUNCTION(dao)
 
 #if DAO_USE_AOP_PROPERTY
 		if (DAO_GLOBAL(aop).enable_property) {
-# if PHP_VERSION_ID >= 70300
+
 			zend_object_handlers *handlers = (zend_object_handlers *)zend_get_std_object_handlers();
 			// overload zend_std_read_property and zend_std_write_property
 			original_zend_std_read_property = handlers->read_property;
@@ -184,17 +184,7 @@ static PHP_MINIT_FUNCTION(dao)
 
 			original_zend_std_get_property_ptr_ptr = handlers->get_property_ptr_ptr;
 			handlers->get_property_ptr_ptr = dao_aop_get_property_ptr_ptr;
-# else
-			// overload zend_std_read_property and zend_std_write_property
-			original_zend_std_read_property = std_object_handlers.read_property;
-			std_object_handlers.read_property = dao_aop_read_property;
 
-			original_zend_std_write_property = std_object_handlers.write_property;
-			std_object_handlers.write_property = dao_aop_write_property;
-
-			original_zend_std_get_property_ptr_ptr = std_object_handlers.get_property_ptr_ptr;
-			std_object_handlers.get_property_ptr_ptr = dao_aop_get_property_ptr_ptr;
-# endif
 		}
 #endif
 	}

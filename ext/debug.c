@@ -1408,7 +1408,7 @@ PHP_METHOD(Dao_Debug, onUserDefinedError){
 		if (
 			!dao_array_isset_fetch_str(&previous, context, SL("e"), PH_READONLY) ||
 			Z_TYPE(previous) != IS_OBJECT ||
-			!instanceof_function_ex(Z_OBJCE_P(&previous), zend_exception_get_default(), 1)
+			!instanceof_function(Z_OBJCE_P(&previous), zend_exception_get_default())
 		) {
 			ZVAL_NULL(&previous);
 		}

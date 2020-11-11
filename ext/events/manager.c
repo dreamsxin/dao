@@ -411,7 +411,7 @@ PHP_METHOD(Dao_Events_Manager, fireQueue){
 	if (unlikely(Z_TYPE_P(queue) != IS_ARRAY)) {
 		if (Z_TYPE_P(queue) == IS_OBJECT) {
 			ce = Z_OBJCE_P(queue);
-			if (!instanceof_function_ex(ce, dao_events_event_ce, 0) && !instanceof_function_ex(ce, spl_ce_SplPriorityQueue, 0)) {
+			if (!instanceof_function(ce, dao_events_event_ce) && !instanceof_function(ce, spl_ce_SplPriorityQueue)) {
 				DAO_THROW_EXCEPTION_FORMAT(dao_events_exception_ce, "Unexpected value type: expected object of type Dao\\Events\\Event or SplPriorityQueue, %s given", ce->name->val);
 				return;
 			}

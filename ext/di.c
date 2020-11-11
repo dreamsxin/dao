@@ -475,7 +475,7 @@ PHP_METHOD(Dao_Di, get){
 	}
 
 	/* Pass the DI itself if the instance implements Dao\Di\InjectionAwareInterface */
-	if (ce && instanceof_function_ex(ce, dao_di_injectionawareinterface_ce, 1)) {
+	if (ce && instanceof_function(ce, dao_di_injectionawareinterface_ce)) {
 		DAO_MM_CALL_METHOD(NULL, return_value, "setdi", getThis());
 	} else if (dao_method_exists_ex(return_value, SL("setdi")) == SUCCESS) {
 		DAO_MM_CALL_METHOD(NULL, return_value, "setdi", getThis());
@@ -518,7 +518,7 @@ PHP_METHOD(Dao_Di, getShared){
 	}
 
 	if (dao_property_array_isset_fetch(return_value, getThis(), SL("_sharedInstances"), name, PH_COPY)) {
-		if (Z_TYPE_P(return_value) == IS_OBJECT && instanceof_function_ex(Z_OBJCE_P(return_value), dao_di_injectionawareinterface_ce, 1)) {
+		if (Z_TYPE_P(return_value) == IS_OBJECT && instanceof_function(Z_OBJCE_P(return_value), dao_di_injectionawareinterface_ce)) {
 			DAO_CALL_METHOD(NULL, return_value, "setdi", getThis());
 		}
 		dao_update_property_bool(getThis(), SL("_freshInstance"), 0);

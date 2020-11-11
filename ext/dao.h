@@ -80,7 +80,6 @@
 #include "cache/frontend/none.h"
 #include "cache/frontend/output.h"
 #include "cache/multiple.h"
-#include "cache/yac.h"
 
 #include "pconfig.h"
 #include "config/adapter.h"

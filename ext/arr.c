@@ -151,17 +151,13 @@ ZEND_END_ARG_INFO()
 ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_arr_merge, 0, 0, 2)
 	ZEND_ARG_TYPE_INFO(0, array1, IS_ARRAY, 0)
 	ZEND_ARG_TYPE_INFO(0, array2, IS_ARRAY, 0)
-#if PHP_VERSION_ID >= 70400
 	ZEND_ARG_VARIADIC_TYPE_INFO(0, arrays, IS_ARRAY, 0)
-#endif
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_arr_overwrite, 0, 0, 2)
 	ZEND_ARG_TYPE_INFO(0, array1, IS_ARRAY, 0)
 	ZEND_ARG_TYPE_INFO(0, array2, IS_ARRAY, 0)
-#if PHP_VERSION_ID >= 70400
 	ZEND_ARG_VARIADIC_TYPE_INFO(0, arrays, IS_ARRAY, 0)
-#endif
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_arr_callback, 0, 0, 1)
@@ -336,11 +332,8 @@ PHP_METHOD(Dao_Arr, is_array){
 	if (Z_TYPE_P(value) == IS_ARRAY) {
 		RETURN_TRUE;
 	}
-#if PHP_VERSION_ID >= 80000
+
 	RETURN_BOOL(Z_TYPE_P(value) == IS_OBJECT && zend_class_implements_interface(Z_OBJCE_P(value), zend_ce_traversable));
-#else
-	RETURN_BOOL(Z_TYPE_P(value) == IS_OBJECT && instanceof_function_ex(Z_OBJCE_P(value), zend_ce_traversable, 1));
-#endif
 }
 
 /**
@@ -1647,11 +1640,8 @@ static zend_always_inline int dao_arr_compile_aggregator_function_callable(dao_a
 		return -1;
 	}
 
-	// shared fci configuration
 	agt->fci.param_count = 2;
-#if PHP_VERSION_ID < 80000
-	agt->fci.no_separation = 0;
-#endif
+
 	return 0;
 }
 
@@ -1669,11 +1659,7 @@ static zend_always_inline int dao_arr_compile_aggregator_function(dao_arr_aggreg
 	if (Z_TYPE_P(fun) == IS_LONG) {
 		agt->is_callable = 0;
 		agt->type = fun;
-#if PHP_VERSION_ID >= 80000
 	} else if (zend_is_callable(fun, 0, NULL)) {
-#else
-	} else if (zend_is_callable(fun, IS_CALLABLE_CHECK_NO_ACCESS, NULL)) {
-#endif
 		return dao_arr_compile_aggregator_function_callable(agt, fun);
 	} else {
 		php_error_docref(NULL, E_USER_ERROR, "Invalid aggregator function.");
@@ -1685,15 +1671,13 @@ static zend_always_inline int dao_arr_compile_aggregator_function(dao_arr_aggreg
 static zend_always_inline int dao_arr_compile_aggregator(dao_arr_aggregator *agt, zval *agt_def, ulong num_alias, zend_string *alias)
 {
 	if (Z_TYPE_P(agt_def) == IS_LONG) {
+
 		agt->is_callable = 0;
 		agt->type = agt_def;
 		agt->isa = DAO_ARR_TYPE_LONG;
 		dao_arr_compile_aggregator_selector_default(agt, num_alias, alias);
-#if PHP_VERSION_ID >= 80000
 	} else if (zend_is_callable(agt_def, 0, NULL)) {
-#else
-	} else if (zend_is_callable(agt_def, IS_CALLABLE_CHECK_NO_ACCESS, NULL)) {
-#endif
+
 		if (dao_arr_compile_aggregator_function_callable(agt, agt_def) != 0) {
 			return -1;
 		}

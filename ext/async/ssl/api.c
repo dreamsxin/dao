@@ -716,10 +716,7 @@ static const zend_function_entry async_tls_info_functions[] = {
 void async_ssl_ce_register()
 {
 	zend_class_entry ce;
-	
-#if PHP_VERSION_ID >= 70400
 	zval tmp;
-#endif
 
 	INIT_NS_CLASS_ENTRY(ce, "Dao\\Async\\Network", "TlsClientEncryption", async_tls_client_encryption_functions);
 	async_tls_client_encryption_ce = zend_register_internal_class(&ce);
@@ -754,7 +751,6 @@ void async_ssl_ce_register()
 	str_cipher_bits = zend_new_interned_string(zend_string_init(ZEND_STRL("cipher_bits"), 1));
 	str_alpn_protocol = zend_new_interned_string(zend_string_init(ZEND_STRL("alpn_protocol"), 1));
 
-#if PHP_VERSION_ID >= 80000
 	ZVAL_STRING(&tmp, "");
 	zend_declare_typed_property(async_tls_info_ce, str_protocol, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_STRING, 0, 0));
 	zend_declare_typed_property(async_tls_info_ce, str_cipher_name, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_STRING, 0, 0));
@@ -765,23 +761,6 @@ void async_ssl_ce_register()
 
 	ZVAL_NULL(&tmp);
 	zend_declare_typed_property(async_tls_info_ce, str_alpn_protocol, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_STRING, 1, 0));
-#elif PHP_VERSION_ID < 70400
-	zend_declare_property_null(async_tls_info_ce, ZEND_STRL("protocol"), ZEND_ACC_PUBLIC);
-	zend_declare_property_null(async_tls_info_ce, ZEND_STRL("cipher_name"), ZEND_ACC_PUBLIC);
-	zend_declare_property_null(async_tls_info_ce, ZEND_STRL("cipher_bits"), ZEND_ACC_PUBLIC);
-	zend_declare_property_null(async_tls_info_ce, ZEND_STRL("alpn_protocol"), ZEND_ACC_PUBLIC);
-#else
-	ZVAL_STRING(&tmp, "");
-	zend_declare_typed_property(async_tls_info_ce, str_protocol, &tmp, ZEND_ACC_PUBLIC, NULL, IS_STRING);
-	zend_declare_typed_property(async_tls_info_ce, str_cipher_name, &tmp, ZEND_ACC_PUBLIC, NULL, IS_STRING);
-	zval_ptr_dtor(&tmp);
-
-	ZVAL_LONG(&tmp, 0);
-	zend_declare_typed_property(async_tls_info_ce, str_cipher_bits, &tmp, ZEND_ACC_PUBLIC, NULL, IS_LONG);
-
-	ZVAL_NULL(&tmp);
-	zend_declare_typed_property(async_tls_info_ce, str_alpn_protocol, &tmp, ZEND_ACC_PUBLIC, NULL, ZEND_TYPE_ENCODE(IS_STRING, 1));
-#endif
 
 #ifdef HAVE_ASYNC_SSL
 	async_ssl_bio_init();

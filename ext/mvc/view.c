@@ -1539,11 +1539,8 @@ PHP_METHOD(Dao_Mvc_View, render){
 	dao_read_property(&render_level, getThis(), SL("_renderLevel"), PH_NOISY|PH_READONLY);
 	if (zend_is_true(&render_level)) {
 		dao_read_property(&enable_layouts_absolute_path, getThis(), SL("_enableLayoutsAbsolutePath"), PH_READONLY);
-#if PHP_VERSION_ID >= 80000
+
 		if (view_model && Z_TYPE_P(view_model) == IS_OBJECT && zend_class_implements_interface(Z_OBJCE_P(view_model), dao_mvc_view_modelinterface_ce)) {
-#else
-		if (view_model && Z_TYPE_P(view_model) == IS_OBJECT && instanceof_function_ex(Z_OBJCE_P(view_model), dao_mvc_view_modelinterface_ce, 1)) {
-#endif
 			zval model_content = {};
 			DAO_MM_CALL_METHOD(NULL, view_model, "setview", getThis());
 			DAO_MM_CALL_METHOD(&model_content, view_model, "render");

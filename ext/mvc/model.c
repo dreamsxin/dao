@@ -1453,11 +1453,7 @@ PHP_METHOD(Dao_Mvc_Model, getReadConnection){
 	dao_read_property(&transaction, getThis(), SL("_transaction"), PH_READONLY);
 	if (Z_TYPE(transaction) == IS_OBJECT) {
 
-#if PHP_VERSION_ID >= 80000
 		if (zend_class_implements_interface(Z_OBJCE(transaction), dao_db_adapterinterface_ce)) {
-#else
-		if (instanceof_function_ex(Z_OBJCE(transaction), dao_db_adapterinterface_ce, 1)) {
-#endif
 			RETURN_MM_CTOR(&transaction);
 		}
 
@@ -1516,7 +1512,7 @@ PHP_METHOD(Dao_Mvc_Model, getWriteConnection){
 	dao_read_property(&transaction, getThis(), SL("_transaction"), PH_READONLY);
 
 	if (Z_TYPE(transaction) == IS_OBJECT) {
-		if (instanceof_function_ex(Z_OBJCE(transaction), dao_db_adapterinterface_ce, 1)) {
+		if (instanceof_function(Z_OBJCE(transaction), dao_db_adapterinterface_ce)) {
 			RETURN_CTOR(&transaction);
 		}
 
@@ -5058,7 +5054,7 @@ PHP_METHOD(Dao_Mvc_Model, save){
 
 	dao_read_property(&transaction, getThis(), SL("_transaction"), PH_READONLY);
 	if (Z_TYPE(transaction) == IS_OBJECT) {
-		if (instanceof_function_ex(Z_OBJCE(transaction), dao_db_adapterinterface_ce, 1)) {
+		if (instanceof_function(Z_OBJCE(transaction), dao_db_adapterinterface_ce)) {
 			DAO_MM_ZVAL_COPY(&write_connection, &transaction);
 		} else {
 			DAO_MM_CALL_METHOD(&write_connection, &transaction, "getconnection");
@@ -6772,9 +6768,9 @@ PHP_METHOD(Dao_Mvc_Model, __set){
 				if (Z_TYPE_P(value) == IS_OBJECT) {
 					dao_get_class(&model_name, value, 0);
 					DAO_MM_ADD_ENTRY(&model_name);
-					if (instanceof_function_ex(Z_OBJCE_P(value), dao_mvc_model_resultsetinterface_ce, 1)) {
+					if (instanceof_function(Z_OBJCE_P(value), dao_mvc_model_resultsetinterface_ce)) {
 						dao_update_property_array(getThis(), SL("_relatedResult"), &lower_property, value);
-					} else if (!instanceof_function_ex(Z_OBJCE_P(value), dao_mvc_modelinterface_ce, 1) || !DAO_IS_EQUAL(&referenced_model_name, &model_name)) {
+					} else if (!instanceof_function(Z_OBJCE_P(value), dao_mvc_modelinterface_ce) || !DAO_IS_EQUAL(&referenced_model_name, &model_name)) {
 						DAO_CONCAT_SVSVS(&exception_message, "Property \"", property, "\" must be an model `", &referenced_model_name, "`");
 						DAO_MM_ADD_ENTRY(&exception_message);
 						DAO_MM_THROW_EXCEPTION_ZVAL(dao_mvc_model_exception_ce, &exception_message);
@@ -6818,12 +6814,12 @@ PHP_METHOD(Dao_Mvc_Model, __set){
 					if (Z_TYPE_P(item) == IS_OBJECT) {
 						dao_get_class(&model_name, item, 0);
 						DAO_MM_ADD_ENTRY(&model_name);
-						if (instanceof_function_ex(Z_OBJCE_P(item), dao_mvc_model_resultsetinterface_ce, 1)) {
+						if (instanceof_function(Z_OBJCE_P(item), dao_mvc_model_resultsetinterface_ce)) {
 							dao_update_property_array(getThis(), SL("_relatedResult"), &lower_property, item);
 							continue;
 						}
 
-						if (!instanceof_function_ex(Z_OBJCE_P(item), dao_mvc_modelinterface_ce, 1) || !DAO_IS_EQUAL(&referenced_model_name, &model_name)) {
+						if (!instanceof_function(Z_OBJCE_P(item), dao_mvc_modelinterface_ce) || !DAO_IS_EQUAL(&referenced_model_name, &model_name)) {
 							DAO_CONCAT_SVSVS(&exception_message, "Property \"", property, "\" must be an model `", &referenced_model_name, "`");
 							DAO_MM_ADD_ENTRY(&exception_message);
 							DAO_MM_THROW_EXCEPTION_ZVAL(dao_mvc_model_exception_ce, &exception_message);
@@ -6944,9 +6940,9 @@ PHP_METHOD(Dao_Mvc_Model, __get){
 			/**
 			 * For belongs-to relations we store the object in the related bag
 			 */
-			if (instanceof_function_ex(Z_OBJCE(result), dao_mvc_modelinterface_ce, 1)) {
+			if (instanceof_function(Z_OBJCE(result), dao_mvc_modelinterface_ce)) {
 				dao_update_property_array(getThis(), SL("_related"), &lower_property, &result);
-			} else if (instanceof_function_ex(Z_OBJCE(result), dao_mvc_model_resultsetinterface_ce, 1)) {
+			} else if (instanceof_function(Z_OBJCE(result), dao_mvc_model_resultsetinterface_ce)) {
 				dao_update_property_array(getThis(), SL("_relatedResult"), &lower_property, &result);
 			}
 		}
@@ -7217,11 +7213,8 @@ PHP_METHOD(Dao_Mvc_Model, toArray){
 		DAO_MM_CALL_SELF(&column_map, "getreversecolumnmap");
 		DAO_MM_ADD_ENTRY(&column_map);
 
-#if PHP_VERSION_ID >= 80000
 		properties = Z_OBJ_HT_P(getThis())->get_properties(getThis() ? Z_OBJ_P(getThis()) : NULL);
-#else
-		properties = Z_OBJ_HT_P(getThis())->get_properties(getThis());
-#endif
+
 		ZEND_HASH_FOREACH_STR_KEY_VAL(properties, key, value) {
 			zval field = {};
 			if (key) {

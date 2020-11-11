@@ -147,33 +147,19 @@ static inline void _zend_assign_to_variable_reference(zval *variable_ptr, zval *
 	}
 
 	ref = Z_REF_P(value_ptr);
-#if PHP_VERSION_ID >= 70300
 	GC_ADDREF(ref);
-#else
-	GC_REFCOUNT(ref)++;
-#endif
+
 	if (Z_REFCOUNTED_P(variable_ptr)) {
 		zend_refcounted *garbage = Z_COUNTED_P(variable_ptr);
-#if PHP_VERSION_ID >= 70300
+
 		if (GC_DELREF(garbage) == 0) {
-#else
-		if (--GC_REFCOUNT(garbage) == 0) {
-#endif
 			ZVAL_REF(variable_ptr, ref);
-#if PHP_VERSION_ID >= 80000
+
 			rc_dtor_func(garbage);
-#elif PHP_VERSION_ID >= 70100
-			zval_dtor_func(garbage);
-#else
-			zval_dtor_func_for_ptr(garbage);
-#endif
+
 			return;
 		} else {
-#if PHP_VERSION_ID >= 70200
 			gc_check_possible_root(Z_COUNTED_P(variable_ptr));
-#else
-			GC_ZVAL_CHECK_POSSIBLE_ROOT(variable_ptr);
-#endif
 		}
 	}
 	ZVAL_REF(variable_ptr, ref);
@@ -601,23 +587,13 @@ PHP_METHOD(Dao_Aop_Joinpoint, getPropertyValue){
 	}
 
 	if (intern->object != NULL && intern->member != NULL) {
-#if PHP_VERSION_ID >= 70100
+
 		old_scope = EG(fake_scope);
 		EG(fake_scope) = Z_OBJCE_P(intern->object);
-#else
-		old_scope = EG(scope);
-		EG(scope) = Z_OBJCE_P(intern->object);
-#endif
-#if PHP_VERSION_ID >= 80000
-	   ret = original_zend_std_get_property_ptr_ptr(Z_OBJ_P(intern->object), Z_STR_P(intern->member), intern->type, intern->cache_slot);
-#else
-	   ret = original_zend_std_get_property_ptr_ptr(intern->object, intern->member, intern->type, intern->cache_slot);
-#endif
-#if PHP_VERSION_ID >= 70100
+
+		ret = original_zend_std_get_property_ptr_ptr(Z_OBJ_P(intern->object), Z_STR_P(intern->member), intern->type, intern->cache_slot);
+
 		EG(fake_scope) = old_scope;
-#else
-		EG(scope) = old_scope;
-#endif
 	}
 	if (ret) {
 		RETURN_ZVAL(ret, 1, 0);

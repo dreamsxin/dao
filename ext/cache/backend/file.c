@@ -348,7 +348,7 @@ PHP_METHOD(Dao_Cache_Backend_File, queryKeys){
 	DAO_CALL_METHOD(NULL, &iterator, "__construct", &cache_dir);
 
 	/* DirectoryIterator implements Iterator */
-	assert(instanceof_function_ex(spl_ce_DirectoryIterator, zend_ce_iterator, 1));
+	assert(instanceof_function(spl_ce_DirectoryIterator, zend_ce_iterator));
 
 	it = spl_ce_DirectoryIterator->get_iterator(spl_ce_DirectoryIterator, &iterator, 0);
 
@@ -613,7 +613,7 @@ PHP_METHOD(Dao_Cache_Backend_File, flush){
 	DAO_CALL_METHOD(NULL, &iterator, "__construct", &cache_dir);
 
 	/* DirectoryIterator implements Iterator */
-	assert(instanceof_function_ex(spl_ce_DirectoryIterator, zend_ce_iterator, 1));
+	assert(instanceof_function(spl_ce_DirectoryIterator, zend_ce_iterator));
 
 	it = spl_ce_DirectoryIterator->get_iterator(spl_ce_DirectoryIterator, &iterator, 0);
 

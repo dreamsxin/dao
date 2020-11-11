@@ -464,7 +464,7 @@ PHP_METHOD(Dao_Mvc_Application, handle){
 	ZVAL_TRUE(&returned_response);
 
 	/* Check if the returned object is already a response */
-	if (Z_TYPE(possible_response) == IS_OBJECT && instanceof_function_ex(Z_OBJCE(possible_response), dao_http_responseinterface_ce, 1)) {
+	if (Z_TYPE(possible_response) == IS_OBJECT && instanceof_function(Z_OBJCE(possible_response), dao_http_responseinterface_ce)) {
 		ZVAL_COPY_VALUE(&response, &possible_response);
 	} else {
 		ZVAL_STR(&service, IS(response));
@@ -516,7 +516,7 @@ PHP_METHOD(Dao_Mvc_Application, handle){
 			DAO_MM_ADD_ENTRY(&params);
 
 			/* Automatic render based on the latest controller executed */
-			if (Z_TYPE(possible_response) == IS_OBJECT && instanceof_function_ex(Z_OBJCE(possible_response), dao_mvc_view_modelinterface_ce, 1)) {
+			if (Z_TYPE(possible_response) == IS_OBJECT && instanceof_function(Z_OBJCE(possible_response), dao_mvc_view_modelinterface_ce)) {
 				DAO_MM_CALL_METHOD(NULL, &view, "render", &controller_name, &action_name, &params, &namespace_name, &possible_response);
 			} else {
 				if (Z_TYPE(possible_response) == IS_ARRAY) {

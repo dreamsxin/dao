@@ -263,11 +263,7 @@ static zend_always_inline int parse_open_mode(const char *mode, int *mods)
 	return SUCCESS;
 }
 
-#if PHP_VERSION_ID >= 70400
 static ssize_t async_dirstream_read(php_stream *stream, char *buf, size_t count)
-#else
-static size_t async_dirstream_read(php_stream *stream, char *buf, size_t count)
-#endif
 {
 	async_dirstream_data *data;
 	php_stream_dirent *ent;
@@ -380,11 +376,7 @@ static php_stream_ops async_dirstream_ops = {
 	NULL
 };
 
-#if PHP_VERSION_ID >= 70400
 static ssize_t async_filestream_write(php_stream *stream, const char *buf, size_t count)
-#else
-static size_t async_filestream_write(php_stream *stream, const char *buf, size_t count)
-#endif
 {
 	async_filestream_data *data;
 	uv_fs_t req;
@@ -407,11 +399,7 @@ static size_t async_filestream_write(php_stream *stream, const char *buf, size_t
 	return (size_t) req.result;
 }
 
-#if PHP_VERSION_ID >= 70400
 static ssize_t async_filestream_read(php_stream *stream, char *buf, size_t count)
-#else
-static size_t async_filestream_read(php_stream *stream, char *buf, size_t count)
-#endif
 {
 	async_filestream_data *data;
 	uv_fs_t req;

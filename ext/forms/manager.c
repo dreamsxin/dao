@@ -73,7 +73,6 @@ static const zend_function_entry dao_forms_manager_method_entry[] = {
 
 static zend_object_handlers dao_forms_manager_object_handlers;
 
-#if PHP_VERSION_ID >= 80000
 static zval* dao_forms_manager_read_dimension(zend_object *obj, zval *offset, int type, zval *rv)
 {
 	zval object = {}, forms = {}, *res, tmp = {};
@@ -114,47 +113,6 @@ static zval* dao_forms_manager_read_dimension(zend_object *obj, zval *offset, in
 
 	return res;
 }
-#else
-static zval* dao_forms_manager_read_dimension(zval *object, zval *offset, int type, zval *rv)
-{
-	zval forms = {}, *res, tmp = {};
-
-	if (UNEXPECTED(!offset)) {
-		return &EG(uninitialized_zval);
-	}
-
-	dao_read_property(&forms, object, SL("_forms"), PH_NOISY|PH_READONLY);
-	if (UNEXPECTED(Z_TYPE(forms)) != IS_ARRAY) {
-		return &EG(uninitialized_zval);
-	}
-
-	if (type == BP_VAR_RW) {
-		type = BP_VAR_R;
-	}
-	else if (type == BP_VAR_W) {
-		type = BP_VAR_IS;
-	}
-
-	res = dao_hash_get(Z_ARRVAL(forms), offset, type);
-	if (!res || res == &EG(uninitialized_zval)) {
-		if (UNEXPECTED(Z_TYPE_P(offset) != IS_STRING)) {
-			ZVAL_ZVAL(&tmp, offset, 1, 0);
-			convert_to_string(&tmp);
-			offset = &tmp;
-		}
-
-		zend_throw_exception_ex(dao_forms_exception_ce, 0, "There is no form with name='%s'", Z_STRVAL_P(offset));
-
-		if (UNEXPECTED(offset == &tmp)) {
-			zval_dtor(&tmp);
-		}
-
-		return NULL;
-	}
-
-	return res;
-}
-#endif
 
 /**
  * Dao\Forms\Manager initializer

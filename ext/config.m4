@@ -303,7 +303,7 @@ if test "$PHP_DAO" = "yes"; then
 	dao_php_version=`expr [$]1 \* 1000000 + [$]2 \* 1000 + [$]3`
 
 	if test "$dao_php_version" -lt "8000000"; then
-		AC_MSG_ERROR([You need at least PHP 7.0 to be able to use this version of Dao. PHP $php_version found])
+		AC_MSG_ERROR([You need at least PHP 8.0 to be able to use this version of Dao. PHP $php_version found])
 	else
 		AC_MSG_RESULT([$php_version, ok.])
 	fi

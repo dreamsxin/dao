@@ -1051,15 +1051,12 @@ PHP_METHOD(Dao_Dispatcher, dispatch){
 					zval e = {};
 					ZVAL_OBJ(&e, EG(exception));
 					
-					if (likely(!instanceof_function_ex(Z_OBJCE(e), dao_continueexception_ce, 0))) {
+					if (likely(!instanceof_function(Z_OBJCE(e), dao_continueexception_ce))) {
 						RETURN_MM();
 					}
 
-#if PHP_VERSION_ID >= 80000
 					ZVAL_OBJ(&exception, zend_objects_clone_obj( EG(exception)));
-#else
-					ZVAL_OBJ(&exception, zend_objects_clone_obj(&e));
-#endif
+
 					DAO_MM_ADD_ENTRY(&exception);
 					dao_update_property(getThis(), SL("_lastException"), &exception);
 
@@ -1161,18 +1158,15 @@ PHP_METHOD(Dao_Dispatcher, dispatch){
 					ZVAL_LONG(&key, param_idx);
 				}
 
-#if PHP_VERSION_ID >= 80000
 				DAO_MM_CALL_METHOD(&reflection_class, reflection_parameter, "gettype");
-#else
-				DAO_MM_CALL_METHOD(&reflection_class, reflection_parameter, "getclass");
-#endif
 				DAO_MM_ADD_ENTRY(&reflection_class);
+
 				if (Z_TYPE(reflection_class) == IS_OBJECT) {
 					DAO_MM_CALL_METHOD(&logic_classname, &reflection_class, "getname");
 					DAO_MM_ADD_ENTRY(&logic_classname);
 					if (Z_TYPE(logic_classname) == IS_STRING) {
 						logic_ce = dao_fetch_class(&logic_classname, ZEND_FETCH_CLASS_AUTO);
-						if (instanceof_function_ex(logic_ce, dao_user_logic_ce, 0)) {
+						if (instanceof_function(logic_ce, dao_user_logic_ce)) {
 							DAO_MM_CALL_CE_STATIC(&logic, logic_ce, "call", &action_name, &action_params);
 
 							dao_array_update(&params, &key, &logic, 0);
@@ -1226,13 +1220,9 @@ PHP_METHOD(Dao_Dispatcher, dispatch){
 
 		/* Check if an exception has ocurred */
 		if (EG(exception)) {
-#if PHP_VERSION_ID >= 80000
+
 			ZVAL_OBJ(&exception, zend_objects_clone_obj(EG(exception)));
-#else
-			zval e = {};
-			ZVAL_OBJ(&e, EG(exception));
-			ZVAL_OBJ(&exception, zend_objects_clone_obj(&e));
-#endif
+
 			DAO_MM_ADD_ENTRY(&exception);
 			dao_update_property(getThis(), SL("_lastException"), &exception);
 
@@ -1242,7 +1232,7 @@ PHP_METHOD(Dao_Dispatcher, dispatch){
 			/* Try to handle the exception */
 			DAO_MM_CALL_METHOD(&status, getThis(), "_handleexception", &exception);
 
-			if (likely(!instanceof_function_ex(Z_OBJCE(exception), dao_continueexception_ce, 0))) {
+			if (likely(!instanceof_function(Z_OBJCE(exception), dao_continueexception_ce))) {
 				if (DAO_IS_FALSE(&status)) {
 					dao_read_property(&finished, getThis(), SL("_finished"), PH_READONLY);
 					if (DAO_IS_FALSE(&finished)) {
@@ -1263,7 +1253,7 @@ PHP_METHOD(Dao_Dispatcher, dispatch){
 
 		if (zend_is_true(&logic_binding)) {
 			ZEND_HASH_FOREACH_VAL(Z_ARRVAL(params), param) {
-				if (Z_TYPE_P(param) == IS_OBJECT && instanceof_function_ex(Z_OBJCE_P(param), dao_user_logic_ce, 0)) {
+				if (Z_TYPE_P(param) == IS_OBJECT && instanceof_function(Z_OBJCE_P(param), dao_user_logic_ce)) {
 					if (dao_method_exists_ex(param, SL("finish")) == SUCCESS) {
 						DAO_MM_CALL_METHOD(NULL, param, "finish");
 					}

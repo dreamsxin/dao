@@ -319,10 +319,6 @@ ASYNC_CALLBACK cancel_defer(void *obj, zval* error)
 	defer->fci.params = args;
 	defer->fci.retval = &retval;
 
-#if PHP_VERSION_ID < 80000
-	defer->fci.no_separation = 1;
-#endif
-
 	async_call_nowait(EG(current_execute_data), &defer->fci, &defer->fcc);
 
 	zval_ptr_dtor(&args[0]);
@@ -390,7 +386,6 @@ static void async_deferred_awaitable_object_destroy(zend_object *object)
 	zend_object_std_dtor(&awaitable->std);
 }
 
-#if PHP_VERSION_ID >= 80000
 static int deferred_awaitable_has_prop(zend_object *object, zend_string *member, int has_set_exists, void **cache_slot)
 {
 	async_deferred_awaitable *awaitable;
@@ -450,71 +445,6 @@ static zval *deferred_awaitable_read_prop(zend_object *object, zend_string *memb
 
 	return rv;
 }
-#else
-static int deferred_awaitable_has_prop(zval *object, zval *member, int has_set_exists, void **cache_slot)
-{
-	async_deferred_awaitable *awaitable;
-
-	zend_string *name;
-	zend_property_info *info;
-
-	awaitable = async_deferred_awaitable_obj(Z_OBJ_P(object));
-
-	name = Z_STR_P(member);
-	info = zend_get_property_info(Z_OBJCE_P(object), name, 0);
-
-	if (info == NULL) {
-		return 0;
-	}
-
-	if (info->offset == off_awaitable_status) {
-		return 1;
-	}
-
-	if (has_set_exists != ZEND_PROPERTY_EXISTS) {
-		if (info->offset == off_awaitable_line) {
-			return (has_set_exists == ZEND_PROPERTY_NOT_EMPTY) ? (awaitable->state->line > 0) : 1;
-		}
-
-		if (info->offset == off_awaitable_file) {
-			return awaitable->state->file ? 1 : 0;
-		}
-	}
-
-	return 1;
-}
-
-static zval *deferred_awaitable_read_prop(zval *object, zval *member, int type, void **cache_slot, zval *rv)
-{
-	async_deferred_awaitable *awaitable;
-
-	zend_string *name;
-	zend_property_info *info;
-
-	awaitable = async_deferred_awaitable_obj(Z_OBJ_P(object));
-
-	name = Z_STR_P(member);
-	info = zend_get_property_info(Z_OBJCE_P(object), name, 0);
-
-	if (info == NULL) {
-		rv = &EG(uninitialized_zval);
-	} else if (info->offset == off_awaitable_status) {
-		ZVAL_STRING(rv, async_status_label(awaitable->state->status));
-	} else if (info->offset == off_awaitable_file) {
-		if (awaitable->state->file) {
-			ZVAL_STR_COPY(rv, awaitable->state->file);
-		} else {
-			ZVAL_NULL(rv);
-		}
-	} else if (info->offset == off_awaitable_line) {
-		ZVAL_LONG(rv, awaitable->state->line);
-	} else {
-		rv = &EG(uninitialized_zval);
-	}
-
-	return rv;
-}
-#endif
 
 static ASYNC_DEBUG_INFO_HANDLER(deferred_awaitable_debug_info)
 {
@@ -530,7 +460,6 @@ static ASYNC_DEBUG_INFO_HANDLER(deferred_awaitable_debug_info)
 	return Z_ARRVAL(info);
 }
 
-#if PHP_VERSION_ID >= 80000
 static HashTable *deferred_awaitable_get_props(zend_object *obj)
 {
 	async_deferred_awaitable *awaitable;
@@ -541,18 +470,6 @@ static HashTable *deferred_awaitable_get_props(zend_object *obj)
 
 	return awaitable->std.properties;
 }
-#else
-static HashTable *deferred_awaitable_get_props(zval *obj)
-{
-	async_deferred_awaitable *awaitable;
-
-	awaitable = async_deferred_awaitable_obj(Z_OBJ_P(obj));
-
-	refresh_props(&awaitable->std, awaitable->state, async_deferred_awaitable_prop_offset);
-
-	return awaitable->std.properties;
-}
-#endif
 
 //LCOV_EXCL_START
 ASYNC_METHOD_NO_CTOR(DeferredAwaitable, async_deferred_awaitable_ce)
@@ -602,40 +519,6 @@ static void async_deferred_object_destroy(zend_object *object)
 	zend_object_std_dtor(&defer->std);
 }
 
-#if PHP_VERSION_ID < 80000
-static int deferred_has_prop(zval *object, zval *member, int has_set_exists, void **cache_slot)
-{
-	async_deferred *defer;
-
-	zend_string *name;
-	zend_property_info *info;
-
-	defer = async_deferred_obj(Z_OBJ_P(object));
-
-	name = Z_STR_P(member);
-	info = zend_get_property_info(Z_OBJCE_P(object), name, 0);
-
-	if (info == NULL) {
-		return 0;
-	}
-
-	if (info->offset == off_defer_status) {
-		return 1;
-	}
-
-	if (has_set_exists != ZEND_PROPERTY_EXISTS) {
-		if (info->offset == off_defer_line) {
-			return (has_set_exists == ZEND_PROPERTY_NOT_EMPTY) ? (defer->state->line > 0) : 1;
-		}
-
-		if (info->offset == off_defer_line) {
-			return defer->state->file ? 1 : 0;
-		}
-	}
-
-	return 1;
-}
-#else
 static int deferred_has_prop(zend_object *object, zend_string *member, int has_set_exists, void **cache_slot)
 {
 	async_deferred *defer;
@@ -665,40 +548,7 @@ static int deferred_has_prop(zend_object *object, zend_string *member, int has_s
 
 	return 1;
 }
-#endif
 
-#if PHP_VERSION_ID < 80000
-static zval *deferred_read_prop(zval *object, zval *member, int type, void **cache_slot, zval *rv)
-{
-	async_deferred *defer;
-
-	zend_string *name;
-	zend_property_info *info;
-
-	defer = async_deferred_obj(Z_OBJ_P(object));
-
-	name = Z_STR_P(member);
-	info = zend_get_property_info(Z_OBJCE_P(object), name, 0);
-
-	if (info == NULL) {
-		rv = &EG(uninitialized_zval);
-	} else if (info->offset == off_defer_status) {
-		ZVAL_STRING(rv, async_status_label(defer->state->status));
-	} else if (info->offset == off_defer_file) {
-		if (defer->state->file) {
-			ZVAL_STR_COPY(rv, defer->state->file);
-		} else {
-			ZVAL_NULL(rv);
-		}
-	} else if (info->offset == off_defer_line) {
-		ZVAL_LONG(rv, defer->state->line);
-	} else {
-		rv = &EG(uninitialized_zval);
-	}
-
-	return rv;
-}
-#else
 static zval *deferred_read_prop(zend_object *object, zend_string *member, int type, void **cache_slot, zval *rv)
 {
 	async_deferred *defer;
@@ -726,7 +576,6 @@ static zval *deferred_read_prop(zend_object *object, zend_string *member, int ty
 
 	return rv;
 }
-#endif
 
 static ASYNC_DEBUG_INFO_HANDLER(deferred_debug_info)
 {
@@ -742,7 +591,6 @@ static ASYNC_DEBUG_INFO_HANDLER(deferred_debug_info)
 	return Z_ARRVAL(info);
 }
 
-#if PHP_VERSION_ID >= 80000
 static HashTable *deferred_get_props(zend_object *obj)
 {
 	async_deferred *defer;
@@ -753,18 +601,6 @@ static HashTable *deferred_get_props(zend_object *obj)
 
 	return defer->std.properties;
 }
-#else
-static HashTable *deferred_get_props(zval *obj)
-{
-	async_deferred *defer;
-
-	defer = async_deferred_obj(Z_OBJ_P(obj));
-
-	refresh_props(&defer->std, defer->state, async_deferred_prop_offset);
-
-	return defer->std.properties;
-}
-#endif
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_deferred_ctor, 0, 0, 0)
 	ZEND_ARG_CALLABLE_INFO(0, cancel, 1)
@@ -1062,10 +898,6 @@ static PHP_METHOD(Deferred, combine)
 		return;
 	}
 
-#if PHP_VERSION_ID < 80000
-	fci.no_separation = 1;
-#endif
-
 	ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(args), entry) {
 		ce = (Z_TYPE_P(entry) == IS_OBJECT) ? Z_OBJCE_P(entry) : NULL;
 
@@ -1270,10 +1102,7 @@ static const zend_function_entry deferred_functions[] = {
 void async_deferred_ce_register()
 {
 	zend_class_entry ce;
-
-#if PHP_VERSION_ID >= 70400
 	zval tmp;
-#endif
 
 	str_status = zend_new_interned_string(zend_string_init(ZEND_STRL("status"), 1));
 	str_file = zend_new_interned_string(zend_string_init(ZEND_STRL("file"), 1));
@@ -1296,7 +1125,6 @@ void async_deferred_ce_register()
 	async_deferred_handlers.get_debug_info = deferred_debug_info;
 	async_deferred_handlers.get_properties = deferred_get_props;
 
-#if PHP_VERSION_ID >= 80000
 	ZVAL_STRING(&tmp, "");
 	zend_declare_typed_property(async_deferred_ce, str_status, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_STRING, 0, 0));
 	zval_ptr_dtor(&tmp);
@@ -1304,19 +1132,6 @@ void async_deferred_ce_register()
 	ZVAL_NULL(&tmp);
 	zend_declare_typed_property(async_deferred_ce, str_file, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_STRING, 1, 0));
 	zend_declare_typed_property(async_deferred_ce, str_line, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_LONG, 1, 0));
-#elif PHP_VERSION_ID < 70400
-	zend_declare_property_null(async_deferred_ce, ZEND_STRL("status"), ZEND_ACC_PUBLIC);
-	zend_declare_property_null(async_deferred_ce, ZEND_STRL("file"), ZEND_ACC_PUBLIC);
-	zend_declare_property_null(async_deferred_ce, ZEND_STRL("line"), ZEND_ACC_PUBLIC);
-#else
-	ZVAL_STRING(&tmp, "");
-	zend_declare_typed_property(async_deferred_ce, str_status, &tmp, ZEND_ACC_PUBLIC, NULL, IS_STRING);
-	zval_ptr_dtor(&tmp);
-
-	ZVAL_NULL(&tmp);
-	zend_declare_typed_property(async_deferred_ce, str_file, &tmp, ZEND_ACC_PUBLIC, NULL, ZEND_TYPE_ENCODE(IS_STRING, 1));
-	zend_declare_typed_property(async_deferred_ce, str_line, &tmp, ZEND_ACC_PUBLIC, NULL, ZEND_TYPE_ENCODE(IS_LONG, 1));
-#endif
 
 	off_defer_status = async_deferred_prop_offset(str_status);
 	off_defer_file = async_deferred_prop_offset(str_file);
@@ -1338,7 +1153,6 @@ void async_deferred_ce_register()
 	async_deferred_awaitable_handlers.get_debug_info = deferred_awaitable_debug_info;
 	async_deferred_awaitable_handlers.get_properties = deferred_awaitable_get_props;
 
-#if PHP_VERSION_ID >= 80000
 	ZVAL_STRING(&tmp, "");
 	zend_declare_typed_property(async_deferred_awaitable_ce, str_status, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_STRING, 0, 0));
 	zval_ptr_dtor(&tmp);
@@ -1346,19 +1160,6 @@ void async_deferred_ce_register()
 	ZVAL_NULL(&tmp);
 	zend_declare_typed_property(async_deferred_awaitable_ce, str_file, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_STRING, 1, 0));
 	zend_declare_typed_property(async_deferred_awaitable_ce, str_line, &tmp, ZEND_ACC_PUBLIC, NULL, (zend_type) ZEND_TYPE_INIT_CODE(IS_LONG, 1, 0));
-#elif PHP_VERSION_ID < 70400
-	zend_declare_property_null(async_deferred_awaitable_ce, ZEND_STRL("status"), ZEND_ACC_PUBLIC);
-	zend_declare_property_null(async_deferred_awaitable_ce, ZEND_STRL("file"), ZEND_ACC_PUBLIC);
-	zend_declare_property_null(async_deferred_awaitable_ce, ZEND_STRL("line"), ZEND_ACC_PUBLIC);
-#else
-	ZVAL_STRING(&tmp, "");
-	zend_declare_typed_property(async_deferred_awaitable_ce, str_status, &tmp, ZEND_ACC_PUBLIC, NULL, IS_STRING);
-	zval_ptr_dtor(&tmp);
-
-	ZVAL_NULL(&tmp);
-	zend_declare_typed_property(async_deferred_awaitable_ce, str_file, &tmp, ZEND_ACC_PUBLIC, NULL, ZEND_TYPE_ENCODE(IS_STRING, 1));
-	zend_declare_typed_property(async_deferred_awaitable_ce, str_line, &tmp, ZEND_ACC_PUBLIC, NULL, ZEND_TYPE_ENCODE(IS_LONG, 1));
-#endif
 
 	off_awaitable_status = async_deferred_awaitable_prop_offset(str_status);
 	off_awaitable_file = async_deferred_awaitable_prop_offset(str_file);

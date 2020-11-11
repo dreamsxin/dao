@@ -21,13 +21,6 @@
 
 #include "zend_smart_str.h"
 
-#if ASYNC_SOCKETS
-
-# if PHP_VERSION_ID < 80000
-static int (*le_socket)(void);
-# endif
-#endif
-
 char *async_status_label(zend_uchar status)
 {
 	if (status == ASYNC_OP_RESOLVED) {
@@ -41,25 +34,11 @@ char *async_status_label(zend_uchar status)
 	return "PENDING";
 }
 
-#if PHP_VERSION_ID >= 80000
 zval *async_prop_write_handler_readonly(zend_object *object, zend_string *member, zval *value, void **cache_slot)
 {
 	zend_throw_error(NULL, "Cannot write to property \"%s\" of %s", ZSTR_VAL(member), ZSTR_VAL(object->ce->name));
 	return NULL;
 }
-#elif PHP_VERSION_ID < 70400
-void async_prop_write_handler_readonly(zval *object, zval *member, zval *value, void **cache_slot)
-{
-	zend_throw_error(NULL, "Cannot write to property \"%s\" of %s", ZSTR_VAL(Z_STR_P(member)), ZSTR_VAL(Z_OBJCE_P(object)->name));
-}
-#else
-zval *async_prop_write_handler_readonly(zval *object, zval *member, zval *value, void **cache_slot)
-{
-	zend_throw_error(NULL, "Cannot write to property \"%s\" of %s", ZSTR_VAL(Z_STR_P(member)), ZSTR_VAL(Z_OBJCE_P(object)->name));
-
-	return NULL;
-}
-#endif
 
 ASYNC_API void async_prepare_throwable(zval *error, zend_execute_data *exec, zend_class_entry *ce, const char *message, ...)
 {
@@ -67,11 +46,8 @@ ASYNC_API void async_prepare_throwable(zval *error, zend_execute_data *exec, zen
 
 	zend_fcall_info fci;
 	zend_fcall_info_cache fcc;
-#if PHP_VERSION_ID >= 70200
 	smart_str str = {0};
-#else
-	zend_string *str;
-#endif
+
 	va_list argv;
 
 	zend_object *p1;
@@ -115,13 +91,9 @@ ASYNC_API void async_prepare_throwable(zval *error, zend_execute_data *exec, zen
 	fcc = empty_fcall_info_cache;
 
 	ZVAL_STR(&fci.function_name, ce->constructor->common.function_name);
-#if PHP_VERSION_ID >= 70200
+
 	php_printf_to_smart_str(&str, message, argv);
 	ZVAL_STR(&arg, smart_str_extract(&str));
-#else
-	str = vstrpprintf(0, message, argv);
-	ZVAL_STR(&arg, str);
-#endif
 
 	va_end(argv);
 
@@ -239,20 +211,6 @@ void async_helper_init()
 {
 #if ASYNC_SOCKETS
 
-# if PHP_VERSION_ID < 80000
-	zend_module_entry *sockets;
 
-	le_socket = NULL;
-
-	if ((sockets = zend_hash_str_find_ptr(&module_registry, ZEND_STRL("sockets")))) {
-		if (sockets->handle) { // shared
-			le_socket = (int (*)(void)) DL_FETCH_SYMBOL(sockets->handle, "php_sockets_le_socket");
-
-			if (le_socket == NULL) {
-				le_socket = (int (*)(void)) DL_FETCH_SYMBOL(sockets->handle, "_php_sockets_le_socket");
-			}
-		}
-	}
-#endif
 #endif
 }

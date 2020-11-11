@@ -31,11 +31,6 @@ void dao_pow(zval *return_value, zval *op1, zval *op2);
 long dao_mt_rand(long min, long max);
 
 #define dao_pow_function(result, op1, op2) pow_function(result, op1, op2)
-
-#if PHP_VERSION_ID >= 80000
-# define dao_math_basetozval(str, base, ret) _php_math_basetozval(Z_STR_P(str), base, ret)
-#else
-# define dao_math_basetozval(str, base, ret)  _php_math_basetozval(str, base, ret)
-#endif
+#define dao_math_basetozval(str, base, ret) _php_math_basetozval(Z_STR_P(str), base, ret)
 
 #endif

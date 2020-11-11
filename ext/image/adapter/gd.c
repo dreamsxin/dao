@@ -108,7 +108,7 @@ static const zend_function_entry dao_image_adapter_gd_method_entry[] = {
 	PHP_ME(Dao_Image_Adapter_GD, _save, arginfo_dao_image_adapter__save, ZEND_ACC_PROTECTED)
 	PHP_ME(Dao_Image_Adapter_GD, _render, arginfo_dao_image_adapter__render, ZEND_ACC_PROTECTED)
 	PHP_ME(Dao_Image_Adapter_GD, _create, arginfo_dao_image_adapter_gd__create, ZEND_ACC_PROTECTED)
-	PHP_ME(Dao_Image_Adapter_GD, __destruct, arginfo_empty, ZEND_ACC_PUBLIC|ZEND_ACC_DTOR)
+	PHP_ME(Dao_Image_Adapter_GD, __destruct, arginfo_empty, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Image_Adapter_GD, line, arginfo_dao_image_adapterinterface_line, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Image_Adapter_GD, polygon, arginfo_dao_image_adapterinterface_polygon, ZEND_ACC_PUBLIC)
 	PHP_FE_END

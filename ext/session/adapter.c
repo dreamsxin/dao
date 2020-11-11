@@ -84,7 +84,7 @@ ZEND_END_ARG_INFO()
 
 static const zend_function_entry dao_session_adapter_method_entry[] = {
 	PHP_ME(Dao_Session_Adapter, __construct, arginfo_dao_session_adapter___construct, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
-	PHP_ME(Dao_Session_Adapter, __destruct, arginfo___destruct, ZEND_ACC_PUBLIC | ZEND_ACC_DTOR)
+	PHP_ME(Dao_Session_Adapter, __destruct, arginfo___destruct, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Session_Adapter, start, arginfo_dao_session_adapterinterface_start, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Session_Adapter, setOptions, arginfo_dao_session_adapterinterface_setoptions, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Session_Adapter, getOptions, arginfo_dao_session_adapterinterface_getoptions, ZEND_ACC_PUBLIC)

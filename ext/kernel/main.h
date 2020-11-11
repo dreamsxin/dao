@@ -35,17 +35,6 @@
 
 #include "internal/arginfo.h"
 
-
-#if PHP_VERSION_ID >= 80000
-# ifndef ZEND_ACC_DTOR
-#  define ZEND_ACC_DTOR 0
-# endif
-# ifndef instanceof_function_ex
-#  define instanceof_function_ex(class_ce, interface_ce, loss) instanceof_function(class_ce, interface_ce)
-# endif
-
-#endif
-
 /** Main macros */
 #define PH_DEBUG		0
 

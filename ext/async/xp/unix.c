@@ -101,11 +101,7 @@ static php_stream *unix_socket_factory(const char *proto, size_t plen, const cha
 	return async_pipe_create(NULL, pid STREAMS_CC);
 }
 
-#if PHP_VERSION_ID >= 70400
 static ssize_t async_pipe_write(php_stream *stream, const char *buf, size_t count)
-#else
-static size_t async_pipe_write(php_stream *stream, const char *buf, size_t count)
-#endif
 {
 	async_pipe_data *data;
 	async_stream_write_req write;
@@ -129,11 +125,7 @@ static size_t async_pipe_write(php_stream *stream, const char *buf, size_t count
 	return count;
 }
 
-#if PHP_VERSION_ID >= 70400
 static ssize_t async_pipe_read(php_stream *stream, char *buf, size_t count)
-#else
-static size_t async_pipe_read(php_stream *stream, char *buf, size_t count)
-#endif
 {
 	async_pipe_data *data;
 	async_stream_read_req read;

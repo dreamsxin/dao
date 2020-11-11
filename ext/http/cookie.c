@@ -421,11 +421,8 @@ PHP_METHOD(Dao_Http_Cookie, send){
 	convert_to_long_ex(&secure);
 	convert_to_long_ex(&http_only);
 	convert_to_string_ex(&encrypt_value);
-#if PHP_VERSION_ID >= 70300
+
 	php_setcookie(Z_STR(name), Z_STR(encrypt_value), Z_LVAL(expire), Z_STR(path), Z_STR(domain), Z_LVAL(secure), Z_LVAL(http_only), Z_STR(samesite), 1);
-#else
-	php_setcookie(Z_STR(name), Z_STR(encrypt_value), Z_LVAL(expire), Z_STR(path), Z_STR(domain), Z_LVAL(secure), 1, Z_LVAL(http_only));
-#endif
 
 	RETURN_MM_THIS();
 }
@@ -521,11 +518,9 @@ PHP_METHOD(Dao_Http_Cookie, delete)
 	convert_to_string_ex(&domain);
 	convert_to_long_ex(&secure);
 	convert_to_long_ex(&http_only);
-#if PHP_VERSION_ID >= 70300
+
 	php_setcookie(Z_STR(name), NULL, time(NULL) - 691200, Z_STR(path), Z_STR(domain), Z_LVAL(secure), Z_LVAL(http_only), Z_STR(samesite), 1);
-#else
-	php_setcookie(Z_STR(name), NULL, time(NULL) - 691200, Z_STR(path), Z_STR(domain), Z_LVAL(secure), 1, Z_LVAL(http_only));
-#endif
+
 	RETURN_MM();
 }
 
@@ -775,15 +770,8 @@ PHP_METHOD(Dao_Http_Cookie, __toString){
 		if (FAILURE == dao_call_method(return_value, getThis(), "getvalue", 0, NULL)) {
 			if (EG(exception)) {
 
-#if PHP_VERSION_ID >= 80000
 				ZVAL_OBJ(&exception, zend_objects_clone_obj(EG(exception)));
 				m = zend_read_property(Z_OBJCE(exception), EG(exception), SL("message"), 1, NULL);
-#else
-				zval e = {};
-				ZVAL_OBJ(&e, EG(exception));
-				ZVAL_OBJ(&exception, zend_objects_clone_obj(&e));
-				m = zend_read_property(Z_OBJCE(exception), &exception, SL("message"), 1, NULL);
-#endif
 
 				Z_TRY_ADDREF_P(m);
 				if (Z_TYPE_P(m) != IS_STRING) {

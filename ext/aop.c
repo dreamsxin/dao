@@ -153,83 +153,46 @@ static int pointcut_match_zend_class_entry(dao_aop_pointcut *pc, zend_class_entr
 		return 0;
 	}
 
-#if PHP_VERSION_ID >= 70300
 	pcre2_match_data *match_data = php_pcre_create_match_data(0, pc->re_class);
 	if (NULL == match_data) {
 		return 0;
 	}
-#endif
 
-#if PHP_VERSION_ID >= 70300
 	matches = pcre2_match(pc->re_class, (PCRE2_SPTR)ZSTR_VAL(ce->name), ZSTR_LEN(ce->name), 0, 0,  match_data, php_pcre_mctx());
 	if (matches >= 0) {
 		php_pcre_free_match_data(match_data);
 		return 1;
 	}
-#else
-	matches = pcre_exec(pc->re_class, NULL, ZSTR_VAL(ce->name), ZSTR_LEN(ce->name), 0, 0, NULL, 0);
-	if (matches >= 0) {
-		return 1;
-	}
-#endif
 
 	for (i = 0; i < (int) ce->num_interfaces; i++) {
-#if PHP_VERSION_ID >= 70300
 		matches = pcre2_match(pc->re_class, (PCRE2_SPTR)ZSTR_VAL(ce->interfaces[i]->name), ZSTR_LEN(ce->interfaces[i]->name), 0, 0, match_data, php_pcre_mctx());
 		if (matches >= 0) {
 			php_pcre_free_match_data(match_data);
 			return 1;
 		}
-#else
-		matches = pcre_exec(pc->re_class, NULL, ZSTR_VAL(ce->interfaces[i]->name), ZSTR_LEN(ce->interfaces[i]->name), 0, 0, NULL, 0);
-		if (matches >= 0) {
-			return 1;
-		}
-#endif
 	}
 
 	for (i = 0; i < (int) ce->num_traits; i++) {
-#if PHP_VERSION_ID >= 70400
 		matches = pcre2_match(pc->re_class, (PCRE2_SPTR)ZSTR_VAL(ce->trait_names[i].name), ZSTR_LEN(ce->trait_names[i].name), 0, 0, match_data, php_pcre_mctx());
 		if (matches >= 0) {
 			php_pcre_free_match_data(match_data);
 			return 1;
 		}
-#elif PHP_VERSION_ID >= 70300
-		matches = pcre2_match(pc->re_class, (PCRE2_SPTR)ZSTR_VAL(ce->traits[i]->name), ZSTR_LEN(ce->traits[i]->name), 0, 0, match_data, php_pcre_mctx());
-
-		if (matches >= 0) {
-			php_pcre_free_match_data(match_data);
-			return 1;
-		}
-#else
-		matches = pcre_exec(pc->re_class, NULL, ZSTR_VAL(ce->traits[i]->name), ZSTR_LEN(ce->traits[i]->name), 0, 0, NULL, 0);
-		if (matches>=0) {
-			return 1;
-		}
-#endif
 	}
 
 	ce = ce->parent;
 	while (ce != NULL) {
-#if PHP_VERSION_ID >= 70300
 		matches = pcre2_match(pc->re_class, (PCRE2_SPTR)ZSTR_VAL(ce->name), ZSTR_LEN(ce->name), 0, 0, NULL, 0);
 		if (matches >= 0) {
 			php_pcre_free_match_data(match_data);
 			return 1;
 		}
-#else
-		matches = pcre_exec(pc->re_class, NULL, ZSTR_VAL(ce->name), ZSTR_LEN(ce->name), 0, 0, NULL, 0);
-		if (matches >= 0) {
-			return 1;
-		}
-#endif
+
 		ce = ce->parent;
 	}
-	
-#if PHP_VERSION_ID >= 70300
+
 	php_pcre_free_match_data(match_data);
-#endif
+
 	return 0;
 }
 /*}}}*/
@@ -291,7 +254,7 @@ static int pointcut_match_zend_function(dao_aop_pointcut *pc, zend_execute_data 
 	}
 	if (pc->method_jok) {
 		int matches;
-#if PHP_VERSION_ID >= 70300
+
 		pcre2_match_data *match_data = php_pcre_create_match_data(0, pc->re_method);
 		if (NULL == match_data) {
 			return 0;
@@ -301,12 +264,7 @@ static int pointcut_match_zend_function(dao_aop_pointcut *pc, zend_execute_data 
 		if (matches < 0) {
 			return 0;
 		}
-#else
-		matches = pcre_exec(pc->re_method, NULL, ZSTR_VAL(curr_func->common.function_name), ZSTR_LEN(curr_func->common.function_name), 0, 0, NULL, 0);
-		if (matches < 0) {
-			return 0;
-		}
-#endif
+
 	} else {
 		if (ZSTR_VAL(pc->method)[0] == '\\') {
 			comp_start = 1;
@@ -664,10 +622,6 @@ static void execute_context(zend_execute_data *execute_data, zval *args) /*{{{*/
 		}
 	} else { /* ZEND_OVERLOADED_FUNCTION */
 		//this will never happend,becase there's no hook for overload function
-#if PHP_VERSION_ID >= 70400
-#elif PHP_VERSION_ID >= 70200
-		zend_do_fcall_overloaded(execute_data, execute_data->return_value);
-#endif
 	}
 }
 /*}}}*/
@@ -927,31 +881,18 @@ void dao_aop_do_read_property(HashPosition pos, zend_array *pointcut_table, zval
 	}
 
 	if (current_pc_value == NULL) {
-#if PHP_VERSION_ID < 70100
-		if (EG(scope) != joinpoint->ex->called_scope) {
-			current_scope = EG(scope);
-			EG(scope) = joinpoint->ex->called_scope;
-		}
-#else
+
 		if (EG(fake_scope) != joinpoint->ex->func->common.scope) {
 			current_scope = EG(fake_scope);
 			EG(fake_scope) = joinpoint->ex->func->common.scope;
 		}
-#endif
 
-#if PHP_VERSION_ID >= 80000
 		property_value = original_zend_std_read_property(Z_OBJ_P(joinpoint->object), Z_STR_P(joinpoint->member), joinpoint->type, joinpoint->cache_slot, joinpoint->rv);
-#else
-		property_value = original_zend_std_read_property(joinpoint->object, joinpoint->member, joinpoint->type, joinpoint->cache_slot, joinpoint->rv);
-#endif
+
 		ZVAL_COPY_VALUE(DAO_GLOBAL(aop).property_value, property_value);
 
 		if (current_scope != NULL) {
-#if PHP_VERSION_ID < 70100
-			EG(scope) = current_scope;
-#else
 			EG(fake_scope) = current_scope;
-#endif
 		}
 		return;
 	}
@@ -1006,11 +947,7 @@ zval *dao_aop_read_property(zval *object, zval *member, int type, void **cache_s
 	pointcut_table = get_cache_property(object, member, DAO_AOP_KIND_READ);
 	if (pointcut_table == NULL || zend_hash_num_elements(pointcut_table) == 0) {
 
-#if PHP_VERSION_ID >= 80000
 		return original_zend_std_read_property(Z_OBJ_P(object), Z_STR_P(member),type,cache_slot,rv);
-#else
-		return original_zend_std_read_property(object, member, type,cache_slot,rv);
-#endif
 	}
 	zend_hash_internal_pointer_reset_ex(pointcut_table, &pos);
 
@@ -1061,29 +998,16 @@ void dao_aop_do_write_property(HashPosition pos, zend_array *pointcut_table, zva
 	}
 
 	if (current_pc_value == NULL) {
-#if PHP_VERSION_ID < 70100
-		if (EG(scope) != joinpoint->ex->called_scope) {
-			current_scope = EG(scope);
-			EG(scope) = joinpoint->ex->called_scope;
-		}
-#else
+
 		if (EG(fake_scope) != joinpoint->ex->func->common.scope) {
 			current_scope = EG(fake_scope);
 			EG(fake_scope) = joinpoint->ex->func->common.scope;
 		}
-#endif
-#if PHP_VERSION_ID >= 80000
-		original_zend_std_write_property(Z_OBJ_P(joinpoint->object), Z_STR_P(joinpoint->member), &joinpoint->property_value, joinpoint->cache_slot);
-#else
-		original_zend_std_write_property(joinpoint->object, joinpoint->member, &joinpoint->property_value, joinpoint->cache_slot);
-#endif
-		if (current_scope != NULL) {
 
-#if PHP_VERSION_ID < 70100
-			EG(scope) = current_scope;
-#else
+		original_zend_std_write_property(Z_OBJ_P(joinpoint->object), Z_STR_P(joinpoint->member), &joinpoint->property_value, joinpoint->cache_slot);
+
+		if (current_scope != NULL) {
 			EG(fake_scope) = current_scope;
-#endif
 		}
 		return;
 	}
@@ -1113,11 +1037,7 @@ void dao_aop_do_write_property(HashPosition pos, zend_array *pointcut_table, zva
 	}
 }
 
-#if PHP_VERSION_ID >= 70400
 zval* dao_aop_write_property(zval *object, zval *member, zval *value, void **cache_slot)
-#else
-void dao_aop_write_property(zval *object, zval *member, zval *value, void **cache_slot)
-#endif
 {
 	zval aop_object;
 	dao_aop_joinpoint_object *joinpoint;
@@ -1126,24 +1046,13 @@ void dao_aop_write_property(zval *object, zval *member, zval *value, void **cach
 
 	if (DAO_GLOBAL(aop).lock_write_property > 25) {
 		zend_error(E_ERROR, "Too many level of nested advices. Are there any recursive call ?");
-#if PHP_VERSION_ID >= 70400
 		return value;
-#else
-		return;
-#endif
 	}
 
 	pointcut_table = get_cache_property(object, member, DAO_AOP_KIND_WRITE);
 	if (pointcut_table == NULL || zend_hash_num_elements(pointcut_table) == 0) {
 
-#if PHP_VERSION_ID >= 80000
 		return original_zend_std_write_property(Z_OBJ_P(object), Z_STR_P(member), value, cache_slot);
-#elif PHP_VERSION_ID >= 70400
-		return original_zend_std_write_property(object, member, value, cache_slot);
-#else
-		original_zend_std_write_property(object, member, value, cache_slot);
-		return;
-#endif
 	}
 	zend_hash_internal_pointer_reset_ex(pointcut_table, &pos);
 
@@ -1165,12 +1074,10 @@ void dao_aop_write_property(zval *object, zval *member, zval *value, void **cach
 	DAO_GLOBAL(aop).lock_write_property--;
 
 	zval_ptr_dtor(&aop_object);
-#if PHP_VERSION_ID >= 70400
+
 	return joinpoint->return_value;
-#endif
 }
 
-#if PHP_VERSION_ID >= 80000
 zval *dao_aop_get_property_ptr_ptr(zend_object *object, zend_string *member, int type, void **cache_slot)
 {
 	zend_execute_data *ex = EG(current_execute_data);
@@ -1179,32 +1086,11 @@ zval *dao_aop_get_property_ptr_ptr(zend_object *object, zend_string *member, int
 	}
 	return NULL;
 }
-#else
-zval *dao_aop_get_property_ptr_ptr(zval *object, zval *member, int type, void **cache_slot)
-{
-	zend_execute_data *ex = EG(current_execute_data);
-	if (ex->opline == NULL || (ex->opline->opcode != ZEND_PRE_INC_OBJ && ex->opline->opcode != ZEND_POST_INC_OBJ && ex->opline->opcode != ZEND_PRE_DEC_OBJ && ex->opline->opcode != ZEND_POST_DEC_OBJ)) {
-#if PHP_VERSION_ID >= 70400
-		return original_zend_std_get_property_ptr_ptr(object, member, type, cache_slot);
-#endif
-	}
-	// Call original to not have a notice
-	//original_zend_std_get_property_ptr_ptr(object, member, type, cache_slot);
-	return NULL;
-}
-#endif
 
 void dao_aop_make_regexp_on_pointcut (dao_aop_pointcut *pc) /*{{{*/
 {
-#if PHP_VERSION_ID >= 70400
 	uint32_t *pcre_extra = NULL;
-#elif PHP_VERSION_ID >= 70300
-	uint32_t *pcre_extra = NULL;
-	uint32_t preg_options = 0;
-#else
-	pcre_extra *pcre_extra = NULL;
-	int preg_options = 0;
-#endif
+
 	zend_string *regexp;
 	zend_string *regexp_buffer = NULL;
 	zend_string *regexp_tmp = NULL;
@@ -1242,13 +1128,9 @@ void dao_aop_make_regexp_on_pointcut (dao_aop_pointcut *pc) /*{{{*/
 	zend_string_release(regexp_buffer);
 
 	regexp = zend_string_init(tempregexp, strlen(tempregexp), 0);
-#if PHP_VERSION_ID >= 70400
+
 	pc->re_method = pcre_get_compiled_regex(regexp, pcre_extra);
-#elif PHP_VERSION_ID >= 70300
-	pc->re_method = pcre_get_compiled_regex(regexp, pcre_extra, &preg_options);
-#else
-	pc->re_method = pcre_get_compiled_regex(regexp, &pcre_extra, &preg_options);
-#endif
+
 	zend_string_release(regexp);	
 
 	if (!pc->re_method) {
@@ -1286,13 +1168,9 @@ void dao_aop_make_regexp_on_pointcut (dao_aop_pointcut *pc) /*{{{*/
 		zend_string_release(regexp_buffer);
 
 		regexp = zend_string_init(tempregexp, strlen(tempregexp), 0);
-#if PHP_VERSION_ID >= 70400
+
 		pc->re_class = pcre_get_compiled_regex(regexp, pcre_extra);
-#elif PHP_VERSION_ID >= 70300
-		pc->re_class = pcre_get_compiled_regex(regexp, pcre_extra, &preg_options);
-#else
-		pc->re_class = pcre_get_compiled_regex(regexp, &pcre_extra, &preg_options);
-#endif
+
 		zend_string_release(regexp);
 
 		if (!pc->re_class) {
