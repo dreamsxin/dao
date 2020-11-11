@@ -1,0 +1,522 @@
+
+/*
+  +------------------------------------------------------------------------+
+  | Dao Framework                                                          |
+  +------------------------------------------------------------------------+
+  | Copyright (c) 2011-2014 Phalcon Team (http://www.phalconphp.com)       |
+  +------------------------------------------------------------------------+
+  | This source file is subject to the New BSD License that is bundled     |
+  | with this package in the file docs/LICENSE.txt.                        |
+  |                                                                        |
+  | If you did not receive a copy of the license and are unable to         |
+  | obtain it through the world-wide-web, please send an email             |
+  | to license@phalconphp.com so we can send you a copy immediately.       |
+  +------------------------------------------------------------------------+
+  | Authors: Andres Gutierrez <andres@phalconphp.com>                      |
+  |          Eduar Carvajal <eduar@phalconphp.com>                         |
+  +------------------------------------------------------------------------+
+*/
+
+#include "validation/message/group.h"
+#include "validation/exception.h"
+#include "validation/message.h"
+#include "validation/messageinterface.h"
+
+#ifdef DAO_USE_PHP_JSON
+#include <ext/json/php_json.h>
+#endif
+
+#include "kernel/main.h"
+#include "kernel/memory.h"
+#include "kernel/hash.h"
+#include "kernel/object.h"
+#include "kernel/array.h"
+#include "kernel/exception.h"
+#include "kernel/fcall.h"
+#include "kernel/operators.h"
+
+/**
+ * Dao\Validation\Message\Group
+ *
+ * Represents a group of validation messages
+ */
+zend_class_entry *dao_validation_message_group_ce;
+
+PHP_METHOD(Dao_Validation_Message_Group, __construct);
+PHP_METHOD(Dao_Validation_Message_Group, offsetGet);
+PHP_METHOD(Dao_Validation_Message_Group, offsetSet);
+PHP_METHOD(Dao_Validation_Message_Group, offsetExists);
+PHP_METHOD(Dao_Validation_Message_Group, offsetUnset);
+PHP_METHOD(Dao_Validation_Message_Group, appendMessage);
+PHP_METHOD(Dao_Validation_Message_Group, appendMessages);
+PHP_METHOD(Dao_Validation_Message_Group, filter);
+PHP_METHOD(Dao_Validation_Message_Group, count);
+PHP_METHOD(Dao_Validation_Message_Group, rewind);
+PHP_METHOD(Dao_Validation_Message_Group, current);
+PHP_METHOD(Dao_Validation_Message_Group, key);
+PHP_METHOD(Dao_Validation_Message_Group, next);
+PHP_METHOD(Dao_Validation_Message_Group, valid);
+PHP_METHOD(Dao_Validation_Message_Group, __set_state);
+PHP_METHOD(Dao_Validation_Message_Group, toArray);
+PHP_METHOD(Dao_Validation_Message_Group, jsonSerialize);
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_validation_message_group___construct, 0, 0, 0)
+	ZEND_ARG_INFO(0, messages)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_validation_message_group_offsetget, 0, 0, 1)
+	ZEND_ARG_INFO(0, index)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_validation_message_group_offsetset, 0, 0, 2)
+	ZEND_ARG_INFO(0, index)
+	ZEND_ARG_INFO(0, message)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_validation_message_group_offsetexists, 0, 0, 1)
+	ZEND_ARG_INFO(0, index)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_validation_message_group_offsetunset, 0, 0, 1)
+	ZEND_ARG_INFO(0, index)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_validation_message_group_appendmessage, 0, 0, 1)
+	ZEND_ARG_INFO(0, message)
+	ZEND_ARG_INFO(0, field)
+	ZEND_ARG_INFO(0, type)
+	ZEND_ARG_INFO(0, code)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_validation_message_group_appendmessages, 0, 0, 1)
+	ZEND_ARG_INFO(0, messages)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_validation_message_group_filter, 0, 0, 1)
+	ZEND_ARG_INFO(0, fieldName)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_validation_message_group___set_state, 0, 0, 1)
+	ZEND_ARG_INFO(0, group)
+ZEND_END_ARG_INFO()
+
+static const zend_function_entry dao_validation_message_group_method_entry[] = {
+	PHP_ME(Dao_Validation_Message_Group, __construct, arginfo_dao_validation_message_group___construct, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
+	PHP_ME(Dao_Validation_Message_Group, offsetGet, arginfo_dao_validation_message_group_offsetget, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, offsetSet, arginfo_dao_validation_message_group_offsetset, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, offsetExists, arginfo_dao_validation_message_group_offsetexists, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, offsetUnset, arginfo_dao_validation_message_group_offsetunset, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, appendMessage, arginfo_dao_validation_message_group_appendmessage, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, appendMessages, arginfo_dao_validation_message_group_appendmessages, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, filter, arginfo_dao_validation_message_group_filter, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, count, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, rewind, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, current, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, key, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, next, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, valid, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, __set_state, arginfo_dao_validation_message_group___set_state, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
+	PHP_ME(Dao_Validation_Message_Group, toArray, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Validation_Message_Group, jsonSerialize, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_FE_END
+};
+
+/**
+ * Dao\Validation\Message\Group initializer
+ */
+DAO_INIT_CLASS(Dao_Validation_Message_Group){
+
+	DAO_REGISTER_CLASS(Dao\\Validation\\Message, Group, validation_message_group, dao_validation_message_group_method_entry, 0);
+
+	zend_declare_property_null(dao_validation_message_group_ce, SL("_position"), ZEND_ACC_PROTECTED);
+	zend_declare_property_null(dao_validation_message_group_ce, SL("_messages"), ZEND_ACC_PROTECTED);
+
+	zend_class_implements(dao_validation_message_group_ce, 3, spl_ce_Countable, zend_ce_arrayaccess, zend_ce_iterator);
+#ifdef DAO_USE_PHP_JSON
+	zend_class_implements(dao_validation_message_group_ce, 1, php_json_serializable_ce);
+#endif
+	return SUCCESS;
+}
+
+/**
+ * Dao\Validation\Message\Group constructor
+ *
+ * @param array $messages
+ */
+PHP_METHOD(Dao_Validation_Message_Group, __construct){
+
+	zval *messages = NULL;
+
+	dao_fetch_params(0, 0, 1, &messages);
+	if (messages && Z_TYPE_P(messages) == IS_ARRAY) {
+		dao_update_property(getThis(), SL("_messages"), messages);
+	} else {
+		dao_update_property_empty_array(getThis(), SL("_messages"));
+	}
+}
+
+/**
+ * Gets an attribute a message using the array syntax
+ *
+ *<code>
+ * print_r($messages[0]);
+ *</code>
+ *
+ * @param string $index
+ * @return Dao\Validation\Message
+ */
+PHP_METHOD(Dao_Validation_Message_Group, offsetGet){
+
+	zval *index;
+
+	dao_fetch_params(0, 1, 0, &index);
+	dao_read_property_array(return_value, getThis(), SL("_messages"), index, PH_COPY);
+}
+
+/**
+ * Sets an attribute using the array-syntax
+ *
+ *<code>
+ * $messages[0] = new Dao\Validation\Message('This is a message');
+ *</code>
+ *
+ * @param string $index
+ * @param Dao\Validation\Message $message
+ */
+PHP_METHOD(Dao_Validation_Message_Group, offsetSet){
+
+	zval *index, *message;
+
+	dao_fetch_params(0, 2, 0, &index, &message);
+	dao_update_property_array(getThis(), SL("_messages"), index, message);
+}
+
+/**
+ * Checks if an index exists
+ *
+ *<code>
+ * var_dump(isset($message['database']));
+ *</code>
+ *
+ * @param string $index
+ * @return boolean
+ */
+PHP_METHOD(Dao_Validation_Message_Group, offsetExists){
+
+	zval *index;
+
+	dao_fetch_params(0, 1, 0, &index);
+
+	if (dao_isset_property_array(getThis(), SL("_messages"), index)) {
+		RETURN_TRUE;
+	}
+
+	RETURN_FALSE;
+}
+
+/**
+ * Removes a message from the list
+ *
+ *<code>
+ * unset($message['database']);
+ *</code>
+ *
+ * @param string $index
+ */
+PHP_METHOD(Dao_Validation_Message_Group, offsetUnset){
+
+	zval *index;
+	dao_fetch_params(0, 1, 0, &index);
+	dao_unset_property_array(getThis(), SL("_messages"), index);
+}
+
+/**
+ * Appends a message to the group
+ *
+ *<code>
+ * $messages->appendMessage(new Dao\Validation\Message('This is a message'));
+ *</code>
+ *
+ * @param Dao\Validation\Message $message
+ */
+PHP_METHOD(Dao_Validation_Message_Group, appendMessage){
+
+	zval *message, *field = NULL, *type = NULL, *code = NULL;
+
+	dao_fetch_params(1, 1, 3, &message, &field, &type, &code);
+
+	if (!field) {
+		field = &DAO_GLOBAL(z_null);
+	}
+
+	if (!type) {
+		type = &DAO_GLOBAL(z_null);
+	}
+
+	if (!code) {
+		code = &DAO_GLOBAL(z_null);
+	}
+
+	if (Z_TYPE_P(message) == IS_OBJECT) {
+		DAO_MM_VERIFY_INTERFACE_EX(message, dao_validation_messageinterface_ce, dao_validation_exception_ce);
+		dao_update_property_array_append(getThis(), SL("_messages"), message);
+	} else {
+		zval new_message = {};
+		object_init_ex(&new_message, dao_validation_message_ce);
+		DAO_MM_CALL_METHOD(NULL, &new_message, "__construct", message, field, type, code);
+		DAO_MM_ADD_ENTRY(&new_message);
+		dao_update_property_array_append(getThis(), SL("_errorMessages"), &new_message);
+	}
+	RETURN_MM_THIS();
+}
+
+/**
+ * Appends an array of messages to the group
+ *
+ *<code>
+ * $messages->appendMessages($messagesArray);
+ *</code>
+ *
+ * @param Dao\Validation\MessageInterface[] $messages
+ */
+PHP_METHOD(Dao_Validation_Message_Group, appendMessages){
+
+	zval *messages, *message;
+
+	dao_fetch_params(0, 1, 0, &messages);
+
+	if (Z_TYPE_P(messages) != IS_ARRAY) {
+		if (Z_TYPE_P(messages) != IS_OBJECT) {
+			DAO_THROW_EXCEPTION_STR(dao_validation_exception_ce, "The messages must be array or object");
+			return;
+		}
+	}
+
+	if (Z_TYPE_P(messages) == IS_ARRAY) {
+		/**
+		 * An array of messages is simply merged into the current one
+		 */
+		ZEND_HASH_FOREACH_VAL(Z_ARRVAL_P(messages), message) {
+			DAO_CALL_SELF(NULL, "appendmessage", message);
+		} ZEND_HASH_FOREACH_END();
+	} else {
+		DAO_VERIFY_INTERFACE_EX(messages, zend_ce_iterator, dao_validation_exception_ce);
+		zend_class_entry *ce     = Z_OBJCE_P(messages);
+		zend_object_iterator *it = ce->get_iterator(ce, messages, 0);
+
+		assert(it != NULL);
+		assert(it->funcs->rewind != NULL);
+		assert(it->funcs->valid != NULL);
+		assert(it->funcs->get_current_data != NULL);
+		assert(it->funcs->move_forward != NULL);
+
+		/**
+		 * A group of messages is iterated and appended one-by-one to the current list
+		 */
+		it->funcs->rewind(it);
+		while (!EG(exception) && SUCCESS == it->funcs->valid(it)) {
+			zval *message;
+			zval *params[1];
+
+			message = it->funcs->get_current_data(it);
+			if (!EG(exception)) {
+				params[0] = message;
+				if (FAILURE == dao_call_method(NULL, getThis(), "appendmessage", 1, params)) {
+					break;
+				}
+			}
+
+			if (!EG(exception)) {
+				it->funcs->move_forward(it);
+			}
+		}
+
+		it->funcs->dtor(it);
+		//efree(it);
+	}
+}
+
+/**
+ * Filters the message group by field name
+ *
+ * @param string $fieldName
+ * @return array
+ */
+PHP_METHOD(Dao_Validation_Message_Group, filter){
+
+	zval *field_name, filtered = {}, messages = {}, *message;
+
+	dao_fetch_params(0, 1, 0, &field_name);
+
+	array_init(&filtered);
+
+	dao_read_property(&messages, getThis(), SL("_messages"), PH_READONLY);
+	if (Z_TYPE(messages) == IS_ARRAY) {
+		/**
+		 * A group of messages is iterated and appended one-by-one to the current list
+		 */
+		ZEND_HASH_FOREACH_VAL(Z_ARRVAL(messages), message) {
+			zval field = {};
+			/**
+			 * Get the field name
+			 */
+			if (dao_method_exists_ex(message, SL("getfield")) == SUCCESS) {
+				DAO_CALL_METHOD(&field, message, "getfield");
+				if (DAO_IS_EQUAL(field_name, &field)) {
+					dao_array_append(&filtered, message, PH_COPY);
+				}
+				zval_ptr_dtor(&field);
+			}
+		} ZEND_HASH_FOREACH_END();
+
+	}
+
+	RETVAL_ZVAL(&filtered, 0, 0);
+}
+
+/**
+ * Returns the number of messages in the list
+ *
+ * @return int
+ */
+PHP_METHOD(Dao_Validation_Message_Group, count){
+
+	zval messages = {};
+
+	dao_read_property(&messages, getThis(), SL("_messages"), PH_NOISY|PH_READONLY);
+
+	dao_fast_count(return_value, &messages);
+}
+
+/**
+ * Rewinds the internal iterator
+ */
+PHP_METHOD(Dao_Validation_Message_Group, rewind){
+
+	zval messages = {};
+
+	dao_read_property(&messages, getThis(), SL("_messages"), PH_NOISY|PH_READONLY);
+	zend_hash_internal_pointer_reset(Z_ARRVAL(messages));
+}
+
+/**
+ * Returns the current message in the iterator
+ *
+ * @return Dao\Validation\Message
+ */
+PHP_METHOD(Dao_Validation_Message_Group, current){
+
+	zval messages = {}, *message;
+
+	dao_read_property(&messages, getThis(), SL("_messages"), PH_NOISY|PH_READONLY);
+	if ((message = zend_hash_get_current_data(Z_ARRVAL(messages))) != NULL) {
+		RETURN_CTOR(message);
+	}
+
+	RETURN_FALSE;
+}
+
+/**
+ * Returns the current position/key in the iterator
+ *
+ * @return int
+ */
+PHP_METHOD(Dao_Validation_Message_Group, key){
+
+	zval messages = {};
+
+	dao_read_property(&messages, getThis(), SL("_messages"), PH_NOISY|PH_READONLY);
+	zend_hash_get_current_key_zval(Z_ARRVAL(messages), return_value);
+}
+
+/**
+ * Moves the internal iteration pointer to the next position
+ *
+ */
+PHP_METHOD(Dao_Validation_Message_Group, next){
+
+	zval messages = {}, *message;
+
+	dao_read_property(&messages, getThis(), SL("_messages"), PH_NOISY|PH_READONLY);
+	zend_hash_move_forward(Z_ARRVAL(messages));
+
+	if ((message = zend_hash_get_current_data(Z_ARRVAL(messages))) != NULL) {
+		RETURN_CTOR(message);
+	}
+
+	RETURN_FALSE;
+}
+
+/**
+ * Check if the current message in the iterator is valid
+ *
+ * @return boolean
+ */
+PHP_METHOD(Dao_Validation_Message_Group, valid){
+
+	zval messages = {};
+
+	dao_read_property(&messages, getThis(), SL("_messages"), PH_NOISY|PH_READONLY);
+
+	RETURN_BOOL(zend_hash_has_more_elements(Z_ARRVAL(messages)) == SUCCESS);
+}
+
+/**
+ * Magic __set_state helps to re-build messages variable when exporting
+ *
+ * @param array $group
+ * @return Dao\Mvc\Model\Message\Group
+ */
+PHP_METHOD(Dao_Validation_Message_Group, __set_state){
+
+	zval *group, messages = {};
+
+	dao_fetch_params(0, 1, 0, &group);
+
+	if (dao_array_isset_fetch_str(&messages, group, SL("_messages"), PH_READONLY)) {
+		object_init_ex(return_value, dao_validation_message_group_ce);
+		DAO_CALL_METHOD(NULL, return_value, "__construct", &messages);
+	} else {
+		zend_throw_exception_ex(spl_ce_BadMethodCallException, 0, "Invalid arguments passed to %s", "Dao\\Mvc\\Model\\Message\\Group::__set_state()");
+	}
+}
+
+/**
+ * Returns the instance as an array representation
+ *
+ * @return array
+ */
+PHP_METHOD(Dao_Validation_Message_Group, toArray){
+
+	zval messages = {}, *message;
+
+	DAO_MM_INIT();
+
+	array_init(return_value);
+
+	dao_read_property(&messages, getThis(), SL("_messages"), PH_READONLY);
+	if (Z_TYPE(messages) == IS_ARRAY) {
+		/**
+		 * A group of messages is iterated and appended one-by-one to the current list
+		 */
+		ZEND_HASH_FOREACH_VAL(Z_ARRVAL(messages), message) {
+			zval field = {}, msg = {};
+			DAO_MM_CALL_METHOD(&field, message, "getfield");
+			DAO_MM_ADD_ENTRY(&field);
+			DAO_MM_CALL_METHOD(&msg, message, "getmessage");
+			dao_array_update(return_value, &field, &msg, 0);
+		} ZEND_HASH_FOREACH_END();
+
+	}
+	RETURN_MM();
+}
+
+/**
+ * Returns serialised model as array for json_encode.
+ *
+ * @return array
+ */
+PHP_METHOD(Dao_Validation_Message_Group, jsonSerialize) {
+
+	DAO_CALL_METHOD(return_value, getThis(), "toarray");
+}

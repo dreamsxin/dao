@@ -1,0 +1,129 @@
+
+/*
+  +------------------------------------------------------------------------+
+  | Dao Framework                                                          |
+  +------------------------------------------------------------------------+
+  | Copyright (c) 2011-2014 Phalcon Team (http://www.phalconphp.com)       |
+  +------------------------------------------------------------------------+
+  | This source file is subject to the New BSD License that is bundled     |
+  | with this package in the file docs/LICENSE.txt.                        |
+  |                                                                        |
+  | If you did not receive a copy of the license and are unable to         |
+  | obtain it through the world-wide-web, please send an email             |
+  | to license@phalconphp.com so we can send you a copy immediately.       |
+  +------------------------------------------------------------------------+
+  | Authors: Andres Gutierrez <andres@phalconphp.com>                      |
+  |          Eduar Carvajal <eduar@phalconphp.com>                         |
+  +------------------------------------------------------------------------+
+*/
+
+#ifndef DAO_MVC_MODEL_CRITERIAINTERFACE_H
+#define DAO_MVC_MODEL_CRITERIAINTERFACE_H
+
+#include "php_dao.h"
+
+extern zend_class_entry *dao_mvc_model_criteriainterface_ce;
+
+DAO_INIT_CLASS(Dao_Mvc_Model_CriteriaInterface);
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_setmodelname, 0, 0, 1)
+	ZEND_ARG_INFO(0, modelName)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_bind, 0, 0, 1)
+	ZEND_ARG_ARRAY_INFO(0, bindParams, 0)
+	ZEND_ARG_TYPE_INFO(0, merge, _IS_BOOL, 1)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_bindtypes, 0, 0, 1)
+	ZEND_ARG_ARRAY_INFO(0, bindTypes, 0)
+	ZEND_ARG_TYPE_INFO(0, merge, _IS_BOOL, 1)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_where, 0, 0, 1)
+	ZEND_ARG_INFO(0, conditions)
+	ZEND_ARG_ARRAY_INFO(0, bindParams, 1)
+	ZEND_ARG_ARRAY_INFO(0, bindTypes, 1)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_conditions, 0, 0, 1)
+	ZEND_ARG_INFO(0, conditions)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_orderby, 0, 0, 1)
+	ZEND_ARG_INFO(0, orderColumns)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_limit, 0, 0, 1)
+	ZEND_ARG_INFO(0, limit)
+	ZEND_ARG_INFO(0, offset)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_setuniquerow, 0, 0, 1)
+	ZEND_ARG_INFO(0, uniqueRow)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_forupdate, 0, 0, 0)
+	ZEND_ARG_INFO(0, forUpdate)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_sharedlock, 0, 0, 0)
+	ZEND_ARG_INFO(0, sharedLock)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_andwhere, 0, 0, 1)
+	ZEND_ARG_INFO(0, conditions)
+	ZEND_ARG_ARRAY_INFO(0, bindParams, 1)
+	ZEND_ARG_ARRAY_INFO(0, bindTypes, 1)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_orwhere, 0, 0, 1)
+	ZEND_ARG_INFO(0, conditions)
+	ZEND_ARG_ARRAY_INFO(0, bindParams, 1)
+	ZEND_ARG_ARRAY_INFO(0, bindTypes, 1)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_betweenwhere, 0, 0, 3)
+	ZEND_ARG_INFO(0, expr)
+	ZEND_ARG_INFO(0, minimum)
+	ZEND_ARG_INFO(0, maximum)
+	ZEND_ARG_INFO(0, useOrWhere)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_notbetweenwhere, 0, 0, 3)
+	ZEND_ARG_INFO(0, expr)
+	ZEND_ARG_INFO(0, minimum)
+	ZEND_ARG_INFO(0, maximum)
+	ZEND_ARG_INFO(0, useOrWhere)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_inwhere, 0, 0, 2)
+	ZEND_ARG_INFO(0, expr)
+	ZEND_ARG_ARRAY_INFO(0, values, 0)
+	ZEND_ARG_INFO(0, useOrWhere)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_notinwhere, 0, 0, 2)
+	ZEND_ARG_INFO(0, expr)
+	ZEND_ARG_ARRAY_INFO(0, values, 0)
+	ZEND_ARG_INFO(0, useOrWhere)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_frominput, 0, 0, 3)
+	ZEND_ARG_OBJ_INFO(0, dependencyInjector, Dao\\DiInterface, 0)
+	ZEND_ARG_INFO(0, modelName)
+	ZEND_ARG_ARRAY_INFO(0, data, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_columns, 0, 0, 1)
+	ZEND_ARG_INFO(0, columns)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_mvc_model_criteriainterface_join, 0, 0, 1)
+	ZEND_ARG_INFO(0, model)
+	ZEND_ARG_INFO(0, conditions)
+	ZEND_ARG_INFO(0, alias)
+	ZEND_ARG_INFO(0, type)
+ZEND_END_ARG_INFO()
+
+#endif /* DAO_MVC_MODEL_CRITERIAINTERFACE_H */

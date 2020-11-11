@@ -1,0 +1,716 @@
+/*
+  +------------------------------------------------------------------------+
+  | Dao Framework                                                          |
+  +------------------------------------------------------------------------+
+  | Copyright (c) 2011-2014 Phalcon Team (http://www.phalconphp.com)       |
+  +------------------------------------------------------------------------+
+  | This source file is subject to the New BSD License that is bundled     |
+  | with this package in the file docs/LICENSE.txt.                        |
+  |                                                                        |
+  | If you did not receive a copy of the license and are unable to         |
+  | obtain it through the world-wide-web, please send an email             |
+  | to license@phalconphp.com so we can send you a copy immediately.       |
+  +------------------------------------------------------------------------+
+  | Authors: Andres Gutierrez <andres@phalconphp.com>                      |
+  |          Eduar Carvajal <eduar@phalconphp.com>                         |
+  +------------------------------------------------------------------------+
+*/
+
+#include "assets/collection.h"
+#include "assets/exception.h"
+#include "assets/resource/css.h"
+#include "assets/resource/js.h"
+
+#include "kernel/main.h"
+#include "kernel/memory.h"
+#include "kernel/exception.h"
+#include "kernel/object.h"
+#include "kernel/fcall.h"
+#include "kernel/array.h"
+#include "kernel/concat.h"
+#include "kernel/file.h"
+#include "kernel/operators.h"
+
+/**
+ * Dao\Assets\Collection
+ *
+ * Represents a collection of resources
+ */
+zend_class_entry *dao_assets_collection_ce;
+
+PHP_METHOD(Dao_Assets_Collection, add);
+PHP_METHOD(Dao_Assets_Collection, addCss);
+PHP_METHOD(Dao_Assets_Collection, addJs);
+PHP_METHOD(Dao_Assets_Collection, getResources);
+PHP_METHOD(Dao_Assets_Collection, count);
+PHP_METHOD(Dao_Assets_Collection, rewind);
+PHP_METHOD(Dao_Assets_Collection, current);
+PHP_METHOD(Dao_Assets_Collection, key);
+PHP_METHOD(Dao_Assets_Collection, next);
+PHP_METHOD(Dao_Assets_Collection, valid);
+PHP_METHOD(Dao_Assets_Collection, setTargetPath);
+PHP_METHOD(Dao_Assets_Collection, getTargetPath);
+PHP_METHOD(Dao_Assets_Collection, setSourcePath);
+PHP_METHOD(Dao_Assets_Collection, getSourcePath);
+PHP_METHOD(Dao_Assets_Collection, setTargetUri);
+PHP_METHOD(Dao_Assets_Collection, getTargetUri);
+PHP_METHOD(Dao_Assets_Collection, setPrefix);
+PHP_METHOD(Dao_Assets_Collection, getPrefix);
+PHP_METHOD(Dao_Assets_Collection, setLocal);
+PHP_METHOD(Dao_Assets_Collection, getLocal);
+PHP_METHOD(Dao_Assets_Collection, setAttributes);
+PHP_METHOD(Dao_Assets_Collection, getAttributes);
+PHP_METHOD(Dao_Assets_Collection, addFilter);
+PHP_METHOD(Dao_Assets_Collection, setFilters);
+PHP_METHOD(Dao_Assets_Collection, getFilters);
+PHP_METHOD(Dao_Assets_Collection, join);
+PHP_METHOD(Dao_Assets_Collection, getJoin);
+PHP_METHOD(Dao_Assets_Collection, getRealTargetPath);
+PHP_METHOD(Dao_Assets_Collection, setTargetLocal);
+PHP_METHOD(Dao_Assets_Collection, getTargetLocal);
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_add, 0, 0, 1)
+	ZEND_ARG_INFO(0, resource)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_addcss, 0, 0, 1)
+	ZEND_ARG_INFO(0, path)
+	ZEND_ARG_INFO(0, local)
+	ZEND_ARG_INFO(0, filter)
+	ZEND_ARG_INFO(0, attributes)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_addjs, 0, 0, 1)
+	ZEND_ARG_INFO(0, path)
+	ZEND_ARG_INFO(0, local)
+	ZEND_ARG_INFO(0, filter)
+	ZEND_ARG_INFO(0, attributes)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_settargetpath, 0, 0, 1)
+	ZEND_ARG_INFO(0, targetPath)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_setsourcepath, 0, 0, 1)
+	ZEND_ARG_INFO(0, sourcePath)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_settargeturi, 0, 0, 1)
+	ZEND_ARG_INFO(0, targetUri)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_setprefix, 0, 0, 1)
+	ZEND_ARG_INFO(0, prefix)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_setlocal, 0, 0, 1)
+	ZEND_ARG_INFO(0, local)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_setattributes, 0, 0, 1)
+	ZEND_ARG_TYPE_INFO(0, attributes, IS_ARRAY, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_addfilter, 0, 0, 1)
+	ZEND_ARG_INFO(0, filter)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_setfilters, 0, 0, 1)
+	ZEND_ARG_TYPE_INFO(0, filters, IS_ARRAY, 0)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_join, 0, 0, 1)
+	ZEND_ARG_INFO(0, join)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_getrealtargetpath, 0, 0, 0)
+	ZEND_ARG_INFO(0, basePath)
+ZEND_END_ARG_INFO()
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_assets_collection_settargetlocal, 0, 0, 1)
+	ZEND_ARG_INFO(0, targetLocal)
+ZEND_END_ARG_INFO()
+
+static const zend_function_entry dao_assets_collection_method_entry[] = {
+	PHP_ME(Dao_Assets_Collection, add, arginfo_dao_assets_collection_add, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, addCss, arginfo_dao_assets_collection_addcss, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, addJs, arginfo_dao_assets_collection_addjs, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, getResources, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, count, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, rewind, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, current, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, key, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, next, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, valid, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, setTargetPath, arginfo_dao_assets_collection_settargetpath, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, getTargetPath, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, setSourcePath, arginfo_dao_assets_collection_setsourcepath, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, getSourcePath, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, setTargetUri, arginfo_dao_assets_collection_settargeturi, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, getTargetUri, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, setPrefix, arginfo_dao_assets_collection_setprefix, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, getPrefix, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, setLocal, arginfo_dao_assets_collection_setlocal, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, getLocal, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, setAttributes, arginfo_dao_assets_collection_setattributes, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, getAttributes, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, addFilter, arginfo_dao_assets_collection_addfilter, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, setFilters, arginfo_dao_assets_collection_setfilters, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, getFilters, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, join, arginfo_dao_assets_collection_join, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, getJoin, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, getRealTargetPath, arginfo_dao_assets_collection_getrealtargetpath, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, setTargetLocal, arginfo_dao_assets_collection_settargetlocal, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Assets_Collection, getTargetLocal, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_FE_END
+};
+
+/**
+ * Dao\Assets\Collection initializer
+ */
+DAO_INIT_CLASS(Dao_Assets_Collection){
+
+	DAO_REGISTER_CLASS(Dao\\Assets, Collection, assets_collection, dao_assets_collection_method_entry, 0);
+
+	zend_declare_property_null(dao_assets_collection_ce, SL("_prefix"), ZEND_ACC_PROTECTED);
+	zend_declare_property_bool(dao_assets_collection_ce, SL("_local"), 1, ZEND_ACC_PROTECTED);
+	zend_declare_property_null(dao_assets_collection_ce, SL("_resources"), ZEND_ACC_PROTECTED);
+	zend_declare_property_null(dao_assets_collection_ce, SL("_position"), ZEND_ACC_PROTECTED);
+	zend_declare_property_null(dao_assets_collection_ce, SL("_filters"), ZEND_ACC_PROTECTED);
+	zend_declare_property_null(dao_assets_collection_ce, SL("_attributes"), ZEND_ACC_PROTECTED);
+	zend_declare_property_bool(dao_assets_collection_ce, SL("_join"), 0, ZEND_ACC_PROTECTED);
+	zend_declare_property_null(dao_assets_collection_ce, SL("_targetUri"), ZEND_ACC_PROTECTED);
+	zend_declare_property_null(dao_assets_collection_ce, SL("_targetPath"), ZEND_ACC_PROTECTED);
+	zend_declare_property_null(dao_assets_collection_ce, SL("_sourcePath"), ZEND_ACC_PROTECTED);
+	zend_declare_property_bool(dao_assets_collection_ce, SL("_targetLocal"), 1, ZEND_ACC_PROTECTED);
+
+	zend_class_implements(dao_assets_collection_ce, 2, spl_ce_Countable, zend_ce_iterator);
+
+	return SUCCESS;
+}
+
+/**
+ * Adds a resource to the collection
+ *
+ * @param Dao\Assets\Resource $resource
+ * @return Dao\Assets\Collection
+ */
+PHP_METHOD(Dao_Assets_Collection, add){
+
+	zval *resource;
+
+	dao_fetch_params(0, 1, 0, &resource);
+
+	if (Z_TYPE_P(resource) != IS_OBJECT) {
+		DAO_THROW_EXCEPTION_STR(dao_assets_exception_ce, "Resource must be an object");
+		return;
+	}
+	dao_update_property_array_append(getThis(), SL("_resources"), resource);
+
+	RETURN_THIS();
+}
+
+/**
+ * Adds a CSS resource to the collection
+ *
+ * @param string $path
+ * @param boolean $local
+ * @param boolean $filter
+ * @param array $attributes
+ * @return Dao\Assets\Collection
+ */
+PHP_METHOD(Dao_Assets_Collection, addCss){
+
+	zval *path, *local = NULL, *filter = NULL, *attributes = NULL, collection_local = {}, collection_attributes = {}, resource = {};
+
+	dao_fetch_params(0, 1, 3, &path, &local, &filter, &attributes);
+
+	if (!local) {
+		local = &DAO_GLOBAL(z_null);
+	}
+
+	if (!filter) {
+		filter = &DAO_GLOBAL(z_true);
+	}
+
+	if (!attributes) {
+		attributes = &DAO_GLOBAL(z_null);
+	}
+
+	if (DAO_IS_BOOL(local)) {
+		ZVAL_COPY_VALUE(&collection_attributes, local);
+	} else {
+		dao_read_property(&collection_local, getThis(), SL("_local"), PH_NOISY|PH_READONLY);
+	}
+
+	if (Z_TYPE_P(attributes) == IS_ARRAY) {
+		ZVAL_COPY_VALUE(&collection_attributes, attributes);
+	} else {
+		dao_read_property(&collection_attributes, getThis(), SL("_attributes"), PH_NOISY|PH_READONLY);
+	}
+
+	object_init_ex(&resource, dao_assets_resource_css_ce);
+	DAO_CALL_METHOD(NULL, &resource, "__construct", path, &collection_local, filter, &collection_attributes);
+
+	dao_update_property_array_append(getThis(), SL("_resources"), &resource);
+	zval_ptr_dtor(&resource);
+
+	RETURN_THIS();
+}
+
+/**
+ * Adds a javascript resource to the collection
+ *
+ * @param string $path
+ * @param boolean $local
+ * @param boolean $filter
+ * @param array $attributes
+ * @return Dao\Assets\Collection
+ */
+PHP_METHOD(Dao_Assets_Collection, addJs){
+
+	zval *path, *local = NULL, *filter = NULL, *attributes = NULL, collection_local = {}, collection_attributes = {}, resource = {};
+
+	dao_fetch_params(0, 1, 3, &path, &local, &filter, &attributes);
+
+	if (!local) {
+		local = &DAO_GLOBAL(z_null);
+	}
+
+	if (!filter) {
+		filter = &DAO_GLOBAL(z_true);
+	}
+
+	if (!attributes) {
+		attributes = &DAO_GLOBAL(z_null);
+	}
+
+	if (DAO_IS_BOOL(local)) {
+		ZVAL_COPY_VALUE(&collection_local, local);
+	} else {
+		dao_read_property(&collection_local, getThis(), SL("_local"), PH_NOISY|PH_READONLY);
+	}
+
+	if (Z_TYPE_P(attributes) == IS_ARRAY) {
+		ZVAL_COPY_VALUE(&collection_attributes, attributes);
+	} else {
+		dao_read_property(&collection_attributes, getThis(), SL("_attributes"), PH_NOISY|PH_READONLY);
+	}
+
+	object_init_ex(&resource, dao_assets_resource_js_ce);
+	DAO_CALL_METHOD(NULL, &resource, "__construct", path, &collection_local, filter, &collection_attributes);
+
+	dao_update_property_array_append(getThis(), SL("_resources"), &resource);
+	zval_ptr_dtor(&resource);
+
+	RETURN_THIS();
+}
+
+/**
+ * Returns the resources as an array
+ *
+ * @return Dao\Assets\Resource[]
+ */
+PHP_METHOD(Dao_Assets_Collection, getResources){
+
+	zval *type = NULL, resources = {}, *resource;
+	dao_fetch_params(1, 0, 1, &type);
+
+	dao_read_property(&resources, getThis(), SL("_resources"), PH_NOISY|PH_READONLY);
+
+	if (Z_TYPE(resources) != IS_ARRAY) {
+		array_init(return_value);
+		return;
+	}
+
+	if (type && Z_TYPE_P(type) == IS_STRING) {
+		array_init(return_value);
+		ZEND_HASH_FOREACH_VAL(Z_ARRVAL(resources), resource) {
+			zval rtype = {};
+			DAO_MM_CALL_METHOD(&rtype, resource, "gettype");
+			if (DAO_IS_EQUAL(&rtype, type)) {
+				dao_array_append(return_value, resource, PH_COPY);
+			}
+			zval_ptr_dtor(&rtype);
+		} ZEND_HASH_FOREACH_END();
+		RETURN_MM();
+	}
+	RETURN_MM_CTOR(&resources);
+}
+
+/**
+ * Returns the number of elements in the form
+ *
+ * @return int
+ */
+PHP_METHOD(Dao_Assets_Collection, count){
+
+	zval resources = {};
+
+	dao_read_property(&resources, getThis(), SL("_resources"), PH_NOISY|PH_READONLY);
+	dao_fast_count(return_value, &resources);
+}
+
+/**
+ * Rewinds the internal iterator
+ */
+PHP_METHOD(Dao_Assets_Collection, rewind){
+
+
+	dao_update_property_long(getThis(), SL("_position"), 0);
+
+}
+
+/**
+ * Returns the current resource in the iterator
+ *
+ * @return Dao\Assets\Resource
+ */
+PHP_METHOD(Dao_Assets_Collection, current){
+
+	zval position = {}, resources = {};
+
+	dao_read_property(&position, getThis(), SL("_position"), PH_NOISY|PH_READONLY);
+	dao_read_property(&resources, getThis(), SL("_resources"), PH_NOISY|PH_READONLY);
+
+	if (!dao_array_isset_fetch(return_value, &resources, &position, PH_COPY)) {
+		RETURN_NULL();
+	}
+}
+
+/**
+ * Returns the current position/key in the iterator
+ *
+ * @return int
+ */
+PHP_METHOD(Dao_Assets_Collection, key){
+
+
+	RETURN_MEMBER(getThis(), "_position");
+}
+
+/**
+ * Moves the internal iteration pointer to the next position
+ *
+ */
+PHP_METHOD(Dao_Assets_Collection, next){
+
+
+	dao_property_incr(getThis(), SL("_position"));
+
+}
+
+/**
+ * Check if the current element in the iterator is valid
+ *
+ * @return boolean
+ */
+PHP_METHOD(Dao_Assets_Collection, valid){
+
+	zval position = {}, resources = {};
+
+	dao_read_property(&position, getThis(), SL("_position"), PH_NOISY|PH_READONLY);
+	dao_read_property(&resources, getThis(), SL("_resources"), PH_NOISY|PH_READONLY);
+
+	if (dao_array_isset(&resources, &position)) {
+		RETURN_TRUE;
+	}
+
+	RETURN_FALSE;
+}
+
+/**
+ * Sets the target path of the file for the filtered/join output
+ *
+ * @param string $targetPath
+ * @return Dao\Assets\Collection
+ */
+PHP_METHOD(Dao_Assets_Collection, setTargetPath){
+
+	zval *target_path;
+
+	dao_fetch_params(0, 1, 0, &target_path);
+
+	dao_update_property(getThis(), SL("_targetPath"), target_path);
+	RETURN_THIS();
+}
+
+/**
+ * Returns the target path of the file for the filtered/join output
+ *
+ * @return string
+ */
+PHP_METHOD(Dao_Assets_Collection, getTargetPath){
+
+
+	RETURN_MEMBER(getThis(), "_targetPath");
+}
+
+/**
+ * Sets a base source path for all the resources in this collection
+ *
+ * @param string $sourcePath
+ * @return Dao\Assets\Collection
+ */
+PHP_METHOD(Dao_Assets_Collection, setSourcePath){
+
+	zval *source_path;
+
+	dao_fetch_params(0, 1, 0, &source_path);
+
+	dao_update_property(getThis(), SL("_sourcePath"), source_path);
+	RETURN_THIS();
+}
+
+/**
+ * Returns the base source path for all the resources in this collection
+ *
+ * @return string
+ */
+PHP_METHOD(Dao_Assets_Collection, getSourcePath){
+
+
+	RETURN_MEMBER(getThis(), "_sourcePath");
+}
+
+/**
+ * Sets a target uri for the generated HTML
+ *
+ * @param string $targetUri
+ * @return Dao\Assets\Collection
+ */
+PHP_METHOD(Dao_Assets_Collection, setTargetUri){
+
+	zval *target_uri;
+
+	dao_fetch_params(0, 1, 0, &target_uri);
+
+	dao_update_property(getThis(), SL("_targetUri"), target_uri);
+	RETURN_THIS();
+}
+
+/**
+ * Returns the target uri for the generated HTML
+ *
+ * @return string
+ */
+PHP_METHOD(Dao_Assets_Collection, getTargetUri){
+
+
+	RETURN_MEMBER(getThis(), "_targetUri");
+}
+
+/**
+ * Sets a common prefix for all the resources
+ *
+ * @param string $prefix
+ * @return Dao\Assets\Collection
+ */
+PHP_METHOD(Dao_Assets_Collection, setPrefix){
+
+	zval *prefix;
+
+	dao_fetch_params(0, 1, 0, &prefix);
+
+	dao_update_property(getThis(), SL("_prefix"), prefix);
+	RETURN_THIS();
+}
+
+/**
+ * Returns the prefix
+ *
+ * @return string
+ */
+PHP_METHOD(Dao_Assets_Collection, getPrefix){
+
+
+	RETURN_MEMBER(getThis(), "_prefix");
+}
+
+/**
+ * Sets if the collection uses local resources by default
+ *
+ * @param boolean $local
+ * @return Dao\Assets\Collection
+ */
+PHP_METHOD(Dao_Assets_Collection, setLocal){
+
+	zval *local;
+
+	dao_fetch_params(0, 1, 0, &local);
+
+	dao_update_property(getThis(), SL("_local"), local);
+	RETURN_THIS();
+}
+
+/**
+ * Returns if the collection uses local resources by default
+ *
+ * @return boolean
+ */
+PHP_METHOD(Dao_Assets_Collection, getLocal){
+
+
+	RETURN_MEMBER(getThis(), "_local");
+}
+
+/**
+ * Sets extra HTML attributes
+ *
+ * @param array $attributes
+ * @return $this
+ */
+PHP_METHOD(Dao_Assets_Collection, setAttributes){
+
+	zval *attributes;
+
+	dao_fetch_params(0, 1, 0, &attributes);
+
+	dao_update_property(getThis(), SL("_attributes"), attributes);
+
+	RETURN_THIS();
+}
+
+/**
+ * Returns extra HTML attributes
+ *
+ * @return array
+ */
+PHP_METHOD(Dao_Assets_Collection, getAttributes){
+
+
+	RETURN_MEMBER(getThis(), "_attributes");
+}
+
+/**
+ * Adds a filter to the collection
+ *
+ * @param Dao\Assets\FilterInterface $filter
+ * @return Dao\Assets\Collection
+ */
+PHP_METHOD(Dao_Assets_Collection, addFilter){
+
+	zval *filter;
+
+	dao_fetch_params(0, 1, 0, &filter);
+
+	dao_update_property_array_append(getThis(), SL("_filters"), filter);
+	RETURN_THIS();
+}
+
+/**
+ * Sets an array of filters in the collection
+ *
+ * @param array $filters
+ * @return Dao\Assets\Collection
+ */
+PHP_METHOD(Dao_Assets_Collection, setFilters){
+
+	zval *filters;
+
+	dao_fetch_params(0, 1, 0, &filters);
+
+	dao_update_property(getThis(), SL("_filters"), filters);
+
+	RETURN_THIS();
+}
+
+/**
+ * Returns the filters set in the collection
+ *
+ * @return array
+ */
+PHP_METHOD(Dao_Assets_Collection, getFilters){
+
+
+	RETURN_MEMBER(getThis(), "_filters");
+}
+
+/**
+ * Sets if all filtered resources in the collection must be joined in a single result file
+ *
+ * @param boolean $join
+ * @return Dao\Assets\Collection
+ */
+PHP_METHOD(Dao_Assets_Collection, join){
+
+	zval *join;
+
+	dao_fetch_params(0, 1, 0, &join);
+
+	dao_update_property(getThis(), SL("_join"), join);
+	RETURN_THIS();
+}
+
+/**
+ * Returns if all the filtered resources must be joined
+ *
+ * @return boolean
+ */
+PHP_METHOD(Dao_Assets_Collection, getJoin){
+
+
+	RETURN_MEMBER(getThis(), "_join");
+}
+
+/**
+ * Returns the complete location where the joined/filtered collection must be written
+ *
+ * @param string $basePath
+ * @return string
+ */
+PHP_METHOD(Dao_Assets_Collection, getRealTargetPath){
+
+	zval *base_path = NULL, target_path = {}, complete_path = {};
+
+	dao_fetch_params(0, 0, 1, &base_path);
+
+	if (!base_path) {
+		base_path = &DAO_GLOBAL(z_null);
+	}
+
+	dao_read_property(&target_path, getThis(), SL("_targetPath"), PH_NOISY|PH_READONLY);
+
+	/**
+	 * A base path for resources can be set in the assets manager
+	 */
+	DAO_CONCAT_VV(&complete_path, base_path, &target_path);
+
+	/**
+	 * Get the real template path, the target path can optionally don't exist
+	 */
+	if (dao_file_exists(&complete_path) == SUCCESS) {
+		dao_file_realpath(return_value, &complete_path);
+		zval_ptr_dtor(&complete_path);
+		return;
+	}
+
+	RETURN_ZVAL(&complete_path, 0, 0);
+}
+
+/**
+ * Sets the target local
+ *
+ * @param boolean $targetLocal
+ * @return Dao\Assets\Collection
+ */
+PHP_METHOD(Dao_Assets_Collection, setTargetLocal){
+
+	zval *target_local;
+
+	dao_fetch_params(0, 1, 0, &target_local);
+
+	dao_update_property(getThis(), SL("_targetLocal"), target_local);
+	RETURN_THIS();
+}
+
+/**
+ * Returns the target local
+ *
+ * @return boolean
+ */
+PHP_METHOD(Dao_Assets_Collection, getTargetLocal){
+
+
+	RETURN_MEMBER(getThis(), "_targetLocal");
+}

@@ -1,0 +1,125 @@
+
+/*
+  +------------------------------------------------------------------------+
+  | Dao Framework                                                          |
+  +------------------------------------------------------------------------+
+  | Copyright (c) 2011-2014 Phalcon Team (http://www.phalconphp.com)       |
+  +------------------------------------------------------------------------+
+  | This source file is subject to the New BSD License that is bundled     |
+  | with this package in the file docs/LICENSE.txt.                        |
+  |                                                                        |
+  | If you did not receive a copy of the license and are unable to         |
+  | obtain it through the world-wide-web, please send an email             |
+  | to license@phalconphp.com so we can send you a copy immediately.       |
+  +------------------------------------------------------------------------+
+  | Authors: Andres Gutierrez <andres@phalconphp.com>                      |
+  |          Eduar Carvajal <eduar@phalconphp.com>                         |
+  +------------------------------------------------------------------------+
+*/
+
+#include "config/adapter/php.h"
+#include "config/adapter.h"
+#include "config/adapterinterface.h"
+#include "config/exception.h"
+#include "pconfig.h"
+
+#include "kernel/main.h"
+#include "kernel/memory.h"
+#include "kernel/fcall.h"
+#include "kernel/array.h"
+#include "kernel/require.h"
+#include "kernel/concat.h"
+#include "kernel/object.h"
+
+/**
+ * Dao\Config\Adapter\Php
+ *
+ * Reads php files and converts them to Dao\Config objects.
+ *
+ * Given the next configuration file:
+ *
+ *<code>
+ *<?php
+ *return array(
+ *	'database' => array(
+ *		'adapter' => 'Mysql',
+ *		'host' => 'localhost',
+ *		'username' => 'scott',
+ *		'password' => 'cheetah',
+ *		'dbname' => 'test_db'
+ *	),
+ *
+ *	'phalcon' => array(
+ *		'controllersDir' => '../app/controllers/',
+ *		'modelsDir' => '../app/models/',
+ *		'viewsDir' => '../app/views/'
+ *));
+ *</code>
+ *
+ * You can read it as follows:
+ *
+ *<code>
+ *	$config = new Dao\Config\Adapter\Php("path/config.php");
+ *	echo $config->phalcon->controllersDir;
+ *	echo $config->database->username;
+ *</code>
+ *
+ */
+zend_class_entry *dao_config_adapter_php_ce;
+
+PHP_METHOD(Dao_Config_Adapter_Php, read);
+
+static const zend_function_entry dao_config_adapter_php_method_entry[] = {
+	PHP_ME(Dao_Config_Adapter_Php, read, arginfo_dao_config_adapter_read, ZEND_ACC_PUBLIC)
+	PHP_FE_END
+};
+
+/**
+ * Dao\Config\Adapter\Php phptializer
+ */
+DAO_INIT_CLASS(Dao_Config_Adapter_Php){
+
+	DAO_REGISTER_CLASS_EX(Dao\\Config\\Adapter, Php, config_adapter_php, dao_config_adapter_ce, dao_config_adapter_php_method_entry, 0);
+
+	zend_class_implements(dao_config_adapter_php_ce, 1, dao_config_adapterinterface_ce);
+
+	return SUCCESS;
+}
+
+/**
+ * Load config file
+ *
+ * @param string $filePath
+ */
+PHP_METHOD(Dao_Config_Adapter_Php, read){
+
+	zval *file_path, *absolute_path = NULL, config_dir_path = {}, base_path = {}, config = {};
+
+	dao_fetch_params(0, 1, 1, &file_path, &absolute_path);
+	DAO_ENSURE_IS_STRING(file_path);
+
+	if (absolute_path == NULL) {
+		absolute_path = &DAO_GLOBAL(z_false);
+	}
+
+	if (zend_is_true(absolute_path)) {
+		ZVAL_COPY(&config_dir_path, file_path);
+	} else {
+		dao_read_static_property_ce(&base_path, dao_config_adapter_ce, SL("_basePath"), PH_READONLY);
+		DAO_CONCAT_VV(&config_dir_path, &base_path, file_path);
+	}
+
+	if (dao_require_ret(&config, Z_STRVAL(config_dir_path)) == FAILURE) {
+		zend_throw_exception_ex(dao_config_exception_ce, 0, "Configuration file '%s' cannot be read", Z_STRVAL(config_dir_path));
+		zval_ptr_dtor(&config_dir_path);
+		return;
+	}
+	zval_ptr_dtor(&config_dir_path);
+
+	if (Z_TYPE(config) == IS_ARRAY) {
+		DAO_CALL_METHOD(NULL, getThis(), "val", &config);
+	}
+	zval_ptr_dtor(&config);
+
+	RETURN_THIS();
+}
