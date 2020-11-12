@@ -153,6 +153,8 @@ static PHP_MINIT_FUNCTION(dao)
 {
 	REGISTER_INI_ENTRIES();
 
+	DAO_GLOBAL(cli) = !strcmp(sapi_module.name, "cli");
+
     if (DAO_GLOBAL(snowflake).node < 0) {
 		php_error_docref(NULL, E_WARNING, "snowflake.node must greater than 0");
 		DAO_GLOBAL(snowflake).node = 0;
@@ -202,7 +204,7 @@ static PHP_MINIT_FUNCTION(dao)
 #endif
 
 #if DAO_USE_PYTHON
-	Py_SetProgramName("Dao7");
+	Py_SetProgramName("Dao");
 	Py_InitializeEx(0); // Py_Initialize();
 	PyEval_InitThreads();
 	python_streams_init();

@@ -94,6 +94,9 @@ while ($socket = Dao\Async\Network\TcpSocket::import($ipc)) {
 			$sendchunk = \sprintf("HTTP/1.1 200 OK\r\nServer: webserver\r\nContent-Type: text/html\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n%x\r\n%s\r\n0\r\n\r\n", \strlen($sendchunk), $sendchunk);
 			$socket->write($sendchunk);
 		} catch (\Throwable $e) {
+			$sendchunk = "<h1>Not found!</h1>";
+			$sendchunk = \sprintf("HTTP/1.1 404 NOT FOUND\r\nServer: webserver\r\nContent-Type: text/html\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n%x\r\n%s\r\n0\r\n\r\n", \strlen($sendchunk), $sendchunk);
+			$socket->write($sendchunk);
 			debug($e->getMessage(), __LINE__);
 		} finally {
 			//\Dao\Debug::disable();

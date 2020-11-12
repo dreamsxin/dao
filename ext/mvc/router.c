@@ -248,7 +248,7 @@ PHP_METHOD(Dao_Mvc_Router, getRewriteUri){
 
 	zval longopts = {}, options = {}, uri_source = {}, *_GET, url = {}, *_SERVER, real_uri = {};
 
-	if (unlikely(!strcmp(sapi_module.name, "cli"))) {
+	if (unlikely(DAO_GLOBAL(cli))) {
 		array_init(&longopts);
 		dao_array_append_str(&longopts, SL("url::"), 0);
 		dao_array_append_str(&longopts, SL("uri::"), 0);

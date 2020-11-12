@@ -313,6 +313,9 @@ ZEND_BEGIN_MODULE_GLOBALS(dao)
 	zval z_one;
 	zval z_two;
 
+	/* Is set when the SAPI is cli. */
+	zend_bool cli;
+
 	/** DEBUG */
 	dao_debug_options debug;
 
