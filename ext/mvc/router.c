@@ -452,15 +452,17 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 		ZVAL_COPY_VALUE(&real_uri, uri);
 	}
 
-	DAO_MM_ZVAL_STRING(&event_name, "router:beforeHandle");
-	DAO_MM_CALL_METHOD(&status, getThis(), "fireeventcancel", &event_name, &real_uri);
+	if (likely(DAO_GLOBAL(mvc).enable_router_events)) {
+		DAO_MM_ZVAL_STRING(&event_name, "router:beforeHandle");
+		DAO_MM_CALL_METHOD(&status, getThis(), "fireeventcancel", &event_name, &real_uri);
 
-	if (DAO_IS_FALSE(&status)) {
-		RETURN_MM_FALSE;
-	}
-	DAO_MM_ADD_ENTRY(&status);
-	if (DAO_IS_NOT_EMPTY_STRING(&status)) {
-		ZVAL_COPY_VALUE(&real_uri, &status);
+		if (DAO_IS_FALSE(&status)) {
+			RETURN_MM_FALSE;
+		}
+		DAO_MM_ADD_ENTRY(&status);
+		if (DAO_IS_NOT_EMPTY_STRING(&status)) {
+			ZVAL_COPY_VALUE(&real_uri, &status);
+		}
 	}
 
 	/**
@@ -498,8 +500,10 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 	dao_update_property_bool(getThis(), SL("_wasMatched"), 0);
 	dao_update_property_null(getThis(), SL("_matchedRoute"));
 
-	DAO_MM_ZVAL_STRING(&event_name, "router:beforeCheckRoutes");
-	DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name, &handled_uri);
+	if (likely(DAO_GLOBAL(mvc).enable_router_events)) {
+		DAO_MM_ZVAL_STRING(&event_name, "router:beforeCheckRoutes");
+		DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name, &handled_uri);
+	}
 
 	DAO_MM_CALL_METHOD(&current_host_name, &request, "gethttphost");
 	DAO_MM_ADD_ENTRY(&current_host_name);
@@ -602,8 +606,10 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 			}
 		}
 
-		DAO_MM_ZVAL_STRING(&event_name, "router:beforeCheckRoute");
-		DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name);
+		if (likely(DAO_GLOBAL(mvc).enable_router_events)) {
+			DAO_MM_ZVAL_STRING(&event_name, "router:beforeCheckRoute");
+			DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name);
+		}
 
 		/**
 		 * If the route has parentheses use preg_match
@@ -635,8 +641,10 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 		 * Check for beforeMatch conditions
 		 */
 		if (zend_is_true(&route_found)) {
-			DAO_MM_ZVAL_STRING(&event_name, "router:matchedRoute");
-			DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name, route);
+			if (likely(DAO_GLOBAL(mvc).enable_router_events)) {
+				DAO_MM_ZVAL_STRING(&event_name, "router:matchedRoute");
+				DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name, route);
+			}
 			DAO_MM_CALL_METHOD(&before_match, route, "getbeforematch");
 			if (Z_TYPE(before_match) != IS_NULL) {
 				DAO_MM_ADD_ENTRY(&before_match);
@@ -767,7 +775,7 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 				DAO_DEBUG_LOG(&debug_message);
 				zval_ptr_dtor(&debug_message);
 			}
-		} else {
+		} else if (likely(DAO_GLOBAL(mvc).enable_router_events)) {
 			DAO_MM_ZVAL_STRING(&event_name, "router:notMatchedRoute");
 			DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name, route);
 		}
@@ -968,11 +976,13 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 		DAO_MM_CALL_METHOD(NULL, getThis(), "setparams", &default_params);
 	}
 
-	DAO_MM_ZVAL_STRING(&event_name, "router:afterCheckRoutes");
-	DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name);
+	if (likely(DAO_GLOBAL(mvc).enable_router_events)) {
+		DAO_MM_ZVAL_STRING(&event_name, "router:afterCheckRoutes");
+		DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name);
 
-	DAO_MM_ZVAL_STRING(&event_name, "router:afterHandle");
-	DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name, &route_found);
+		DAO_MM_ZVAL_STRING(&event_name, "router:afterHandle");
+		DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name, &route_found);
+	}
 
 	if (zend_is_true(&route_found)) {
 		RETURN_MM_TRUE;

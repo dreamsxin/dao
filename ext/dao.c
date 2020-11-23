@@ -84,6 +84,8 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_BOOLEAN("dao.debug.enable_debug",           "0",    PHP_INI_ALL,    OnUpdateBool, debug.enable_debug,           zend_dao_globals, dao_globals)
 	/* Enables/Disables view strict mode */
 	STD_PHP_INI_BOOLEAN("dao.mvc.enable_view_strict",       "1",    PHP_INI_ALL,    OnUpdateBool, mvc.enable_view_strict,       zend_dao_globals, dao_globals)
+	/* Enables/Disables router internal events */
+	STD_PHP_INI_BOOLEAN("dao.mvc.enable_router_events",     "1",    PHP_INI_ALL,    OnUpdateBool, mvc.enable_router_events,     zend_dao_globals, dao_globals)
 	/* Enables/Disables globally the internal events */
 	STD_PHP_INI_BOOLEAN("dao.orm.events",                   "1",    PHP_INI_ALL,    OnUpdateBool, orm.events,                   zend_dao_globals, dao_globals)
 	/* Enables/Disables virtual foreign keys */

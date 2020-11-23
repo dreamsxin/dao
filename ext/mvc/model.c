@@ -3517,10 +3517,12 @@ PHP_METHOD(Dao_Mvc_Model, _checkForeignKeysRestrict){
 		 * Call 'onValidationFails' if the validation fails
 		 */
 		if (DAO_IS_TRUE(&error)) {
-			ZVAL_STRING(&event_name, "onValidationFails");
-			DAO_CALL_METHOD(NULL, getThis(), "fireevent", &event_name);
+			if (likely(DAO_GLOBAL(orm).events)) {
+				ZVAL_STRING(&event_name, "onValidationFails");
+				DAO_CALL_METHOD(NULL, getThis(), "fireevent", &event_name);
+				zval_ptr_dtor(&event_name);
+			}
 			DAO_CALL_METHOD(NULL, getThis(), "_canceloperation");
-			zval_ptr_dtor(&event_name);
 			RETURN_FALSE;
 		}
 	}
@@ -3682,8 +3684,10 @@ PHP_METHOD(Dao_Mvc_Model, _checkForeignKeysReverseRestrict){
 		 * Call validation fails event
 		 */
 		if (DAO_IS_TRUE(&error)) {
-			DAO_MM_ZVAL_STRING(&event_name, "onValidationFails");
-			DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name);
+			if (likely(DAO_GLOBAL(orm).events)) {
+				DAO_MM_ZVAL_STRING(&event_name, "onValidationFails");
+				DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name);
+			}
 			DAO_MM_CALL_METHOD(NULL, getThis(), "_canceloperation");
 
 			RETVAL_FALSE;
@@ -3921,15 +3925,24 @@ PHP_METHOD(Dao_Mvc_Model, _preSave){
 	/**
 	 * Call the main validation event
 	 */
- 	DAO_MM_ZVAL_STRING(&event_name, "validation");
-	DAO_MM_CALL_METHOD(&status, getThis(), "fireeventcancel", &event_name);
-	if (DAO_IS_FALSE(&status)) {
-		DAO_MM_ZVAL_STRING(&event_name, "onValidationFails");
-		DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name);
+	
+	DAO_MM_ZVAL_STRING(&event_name, "validation");
+	if (likely(DAO_GLOBAL(orm).events)) {
+		DAO_MM_CALL_METHOD(&status, getThis(), "fireeventcancel", &event_name);
+		if (DAO_IS_FALSE(&status)) {
+			DAO_MM_ZVAL_STRING(&event_name, "onValidationFails");
+			DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name);
 
-		RETURN_MM_FALSE;
+			RETURN_MM_FALSE;
+		}
+	} else if (dao_method_exists(getThis(), &event_name) == SUCCESS) {
+		DAO_MM_CALL_METHOD(&status, getThis(), Z_STRVAL(event_name));
+
+		if (DAO_IS_FALSE(&status)){
+			RETURN_MM_FALSE;
+		}
 	}
-	zval_ptr_dtor(&status);
+	DAO_MM_ADD_ENTRY(&status);
 
 	if (dao_method_exists_ex(getThis(), SL("getlabel")) == SUCCESS) {
 		method_exists = 1;
@@ -4084,8 +4097,10 @@ PHP_METHOD(Dao_Mvc_Model, _preSave){
 	} ZEND_HASH_FOREACH_END();
 
 	if (DAO_IS_TRUE(error)) {
-		DAO_MM_ZVAL_STRING(&event_name, "onValidationFails");
-		DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name);
+		if (likely(DAO_GLOBAL(orm).events)) {
+			DAO_MM_ZVAL_STRING(&event_name, "onValidationFails");
+			DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name);
+		}
 		DAO_MM_CALL_METHOD(NULL, getThis(), "_canceloperation");
 
 		RETURN_MM_FALSE;

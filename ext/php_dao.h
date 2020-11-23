@@ -51,6 +51,7 @@ typedef struct _dao_debug_options {
 /** MVC options */
 typedef struct _dao_mvc_options {
 	zend_bool enable_view_strict;
+	zend_bool enable_router_events;
 } dao_mvc_options;
 
 /** ORM options */

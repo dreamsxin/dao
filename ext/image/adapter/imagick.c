@@ -28,14 +28,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifdef DAO_USE_MAGICKWAND
-# if IM_MAGICKWAND_HEADER_STYLE_SEVEN
-#  include <MagickWand/MagickWand.h>
-# else
-#  include <wand/MagickWand.h>
-# endif
-#endif
-
 #include "kernel/main.h"
 #include "kernel/memory.h"
 #include "kernel/array.h"
@@ -96,7 +88,6 @@ PHP_METHOD(Dao_Image_Adapter_Imagick, curves_graph);
 PHP_METHOD(Dao_Image_Adapter_Imagick, vignette);
 PHP_METHOD(Dao_Image_Adapter_Imagick, earlybird);
 PHP_METHOD(Dao_Image_Adapter_Imagick, inkwell);
-PHP_METHOD(Dao_Image_Adapter_Imagick, convert);
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_image_adapter_imagick___construct, 0, 0, 1)
 	ZEND_ARG_TYPE_INFO(0, file, IS_STRING, 1)
@@ -157,10 +148,6 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_image_adapter_imagick_vignette, 0, 0, 1)
 	ZEND_ARG_TYPE_INFO(0, crop_factor, IS_DOUBLE, 1)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_image_adapter_imagick_convert, 0, 0, 1)
-	ZEND_ARG_INFO(0, command)
-ZEND_END_ARG_INFO()
-
 static const zend_function_entry dao_image_adapter_imagick_method_entry[] = {
 	PHP_ME(Dao_Image_Adapter_Imagick, check, arginfo_empty, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
 	PHP_ME(Dao_Image_Adapter_Imagick, __construct, arginfo_dao_image_adapter_imagick___construct, ZEND_ACC_PUBLIC|ZEND_ACC_CTOR)
@@ -194,7 +181,6 @@ static const zend_function_entry dao_image_adapter_imagick_method_entry[] = {
 	PHP_ME(Dao_Image_Adapter_Imagick, vignette, arginfo_dao_image_adapter_imagick_vignette, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Image_Adapter_Imagick, earlybird, arginfo_empty, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Image_Adapter_Imagick, inkwell, arginfo_empty, ZEND_ACC_PUBLIC)
-	PHP_ME(Dao_Image_Adapter_Imagick, convert, arginfo_dao_image_adapter_imagick_convert, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
 	PHP_FE_END
 };
 
@@ -1989,68 +1975,4 @@ PHP_METHOD(Dao_Image_Adapter_Imagick, inkwell)
 	DAO_CALL_SELF(NULL, "brightness_contrast", &tmp0, &tmp1);
 
 	RETURN_THIS();
-}
-
-PHP_METHOD(Dao_Image_Adapter_Imagick, convert)
-{
-#ifdef DAO_USE_MAGICKWAND
-	zval *command, command_parts = {}, *value;
-	char **argv;
-	int argc, i = 0;
-
-
-	ExceptionInfo *exception = NULL;
-	ImageInfo *image_info = NULL;
-	MagickBooleanType status;
-
-	dao_fetch_params(0, 1, 0, &command);
-
-	if (Z_TYPE_P(command) != IS_ARRAY) {
-		dao_fast_explode_str(&command_parts, SL(" "), command);
-	} else {
-		ZVAL_COPY(&command_parts, command);
-	}
-
-	argc = zend_hash_num_elements(Z_ARRVAL(command_parts));
-
-	argv = emalloc(sizeof(char*) * argc);
-
-	HashTable *ht;
-	if (Z_TYPE_P(command) != IS_ARRAY) {
-		ht = Z_ARRVAL(command_parts);
-	} else {
-		ht = Z_ARRVAL_P(command);
-	}
-
-	ZEND_HASH_FOREACH_VAL(ht, value) {
-		convert_to_string(value);
-		argv[i] = estrdup(Z_STRVAL_P(value));
-		i++;
-	} ZEND_HASH_FOREACH_END();
-
-	MagickCoreGenesis(*argv, MagickTrue);
-	exception = AcquireExceptionInfo();
-	image_info = AcquireImageInfo();
-
-	status = MagickCommandGenesis(image_info, ConvertImageCommand, argc, argv, (char **)NULL, exception);
-
-	image_info = DestroyImageInfo(image_info);
-	exception = DestroyExceptionInfo(exception);
-
-	MagickCoreTerminus();
-
-	for (i = 0; i < argc; i++) {
-		efree(argv[i]);
-	}
-
-	efree(argv);
-	zval_ptr_dtor(&command_parts);
-
-	if (status == 0) {
-		RETURN_TRUE;
-	}
-
-#endif
-
-	RETURN_FALSE;
 }
