@@ -150,7 +150,6 @@ PHP_METHOD(Dao_Mvc_Model_Resultset_Simple, valid){
 			zval result = {};
 			dao_read_property(&result, getThis(), SL("_result"), PH_NOISY|PH_READONLY);
 			if (Z_TYPE(result) == IS_OBJECT) {
-				DAO_MM_CALL_METHOD(NULL, &result, "dataseek", &key);
 				DAO_MM_CALL_METHOD(&row, &result, "fetch");
 				DAO_MM_ADD_ENTRY(&row);
 			} else {

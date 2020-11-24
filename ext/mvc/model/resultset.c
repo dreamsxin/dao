@@ -171,6 +171,7 @@ PHP_METHOD(Dao_Mvc_Model_Resultset, next){
 
 
 	dao_property_incr(getThis(), SL("_pointer"));
+	DAO_CALL_METHOD(NULL, getThis(), "valid");
 
 }
 
