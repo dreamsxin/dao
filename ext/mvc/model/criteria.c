@@ -1529,15 +1529,20 @@ PHP_METHOD(Dao_Mvc_Model_Criteria, cache) {
 /**
  * Sets insert type of PHQL statement to be executed
  *
+ *<code>
+ *	$criteria->insert([['name' => 'Google'], ['name' => 'Baidu']]);
+ *	$criteria->insert(['name'], [['Google'], ['Baidu']]);
+ *</code>
+ *
  * @param array $columns
  * @param array $values
  * @return Dao\Mvc\Model\CriteriaInterface
  */
 PHP_METHOD(Dao_Mvc_Model_Criteria, insert) {
 
-	zval *columns, *values, type = {};
+	zval *columns, *values = NULL, type = {};
 
-	dao_fetch_params(0, 2, 0, &columns, &values);
+	dao_fetch_params(0, 1, 1, &columns, &values);
 
 	ZVAL_LONG(&type, PHQL_T_INSERT);
 
@@ -1548,13 +1553,35 @@ PHP_METHOD(Dao_Mvc_Model_Criteria, insert) {
 		return;
 	}
 
-	if (Z_TYPE_P(values) != IS_ARRAY) {
-		DAO_THROW_EXCEPTION_STR(dao_mvc_model_exception_ce, "Values must be an array");
-		return;
-	}
+	if (!values || Z_TYPE_P(values) != IS_ARRAY) {
+		zval one = {}, keys = {};
+		zend_string *str_key;
+		ulong idx;
+		if (!dao_array_isset_fetch_long(&one, &columns, 0, PH_READONLY) || Z_TYPE(one) != IS_ARRAY) {
+			DAO_THROW_EXCEPTION_STR(phalcon_mvc_model_exception_ce, "Values must be an array");
+			return;
+		}
 
-	dao_update_property(getThis(), SL("_columns"), columns);
-	dao_update_property(getThis(), SL("_values"), values);
+		dao_update_property(getThis(), SL("_values"), columns);
+
+		array_init(&keys);
+		ZEND_HASH_FOREACH_KEY(Z_ARRVAL(one), idx, str_key) {
+			zval name = {};
+			if (str_key) {
+				ZVAL_STR(&name, str_key);
+			} else {
+				ZVAL_LONG(&name, idx);
+			}
+
+			dao_array_append(&keys, &name, PH_COPY);
+
+		} ZEND_HASH_FOREACH_END();
+		dao_update_property(getThis(), SL("_columns"), &keys);
+		zval_ptr_dtor(&keys);
+	} else {
+		dao_update_property(getThis(), SL("_values"), values);
+		dao_update_property(getThis(), SL("_columns"), columns);
+	}
 
 	RETURN_THIS();
 }
