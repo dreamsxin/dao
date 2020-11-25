@@ -202,12 +202,7 @@ PHP_METHOD(Dao_Mvc_Model_Resultset_Complex, valid){
 				dao_update_property(getThis(), SL("_rows"), &rows);
 			}
 		}
-		if (Z_TYPE(rows) == IS_ARRAY) {
-			dao_array_get_current(&row, &rows);
-			if (Z_TYPE(row) == IS_OBJECT) {
-				zend_hash_move_forward(Z_ARRVAL(rows));
-			}
-		} else {
+		if (Z_TYPE(rows) != IS_ARRAY || !dao_property_array_isset_fetch(&row, getThis(), SL("_rows"), &key, PH_READONLY)) {
 			ZVAL_FALSE(&row);
 		}
 	}

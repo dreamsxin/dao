@@ -192,42 +192,6 @@ PHP_METHOD(Dao_Mvc_Model_Resultset, key){
  */
 PHP_METHOD(Dao_Mvc_Model_Resultset, rewind){
 
-	zval type = {}, result = {}, active_row = {}, rows = {}, r = {};
-
-	dao_read_property(&type, getThis(), SL("_type"), PH_NOISY|PH_READONLY);
-	if (zend_is_true(&type)) {
-
-		/**
-		 * Here, the resultset act as a result that is fetched one by one
-		 */
-		dao_read_property(&result, getThis(), SL("_result"), PH_NOISY|PH_READONLY);
-		if (DAO_IS_NOT_FALSE(&result)) {
-			dao_read_property(&active_row, getThis(), SL("_activeRow"), PH_NOISY|PH_READONLY);
-			if (Z_TYPE(active_row) != IS_NULL) {
-				DAO_CALL_METHOD(NULL, &result, "dataseek", &DAO_GLOBAL(z_zero));
-			}
-		}
-	} else {
-		/**
-		 * Here, the resultset act as an array
-		 */
-		dao_read_property(&rows, getThis(), SL("_rows"), PH_NOISY|PH_READONLY);
-		if (Z_TYPE(rows) == IS_NULL) {
-			dao_read_property(&result, getThis(), SL("_result"), PH_NOISY|PH_READONLY);
-			if (Z_TYPE(result) == IS_OBJECT) {
-				DAO_CALL_METHOD(&r, &result, "fetchall");
-				if (likely(Z_TYPE(r) == IS_ARRAY)) {
-					zend_hash_internal_pointer_reset(Z_ARRVAL(r));
-				}
-
-				dao_update_property(getThis(), SL("_rows"), &r);
-				zval_ptr_dtor(&r);
-			}
-		} else if (Z_TYPE(rows) == IS_ARRAY && zend_hash_num_elements(Z_ARRVAL(rows)) > 0) {
-			zend_hash_internal_pointer_reset(Z_ARRVAL(rows));
-		}
-	}
-
 	dao_update_property(getThis(), SL("_pointer"), &DAO_GLOBAL(z_zero));
 }
 
@@ -238,9 +202,7 @@ PHP_METHOD(Dao_Mvc_Model_Resultset, rewind){
  */
 PHP_METHOD(Dao_Mvc_Model_Resultset, seek){
 
-	zval *position, type = {}, result = {}, rows = {}, pointer = {}, is_different = {};
-	HashTable *ah0;
-	long i;
+	zval *position, type = {}, pointer = {}, is_different = {};
 
 	dao_fetch_params(0, 1, 0, &position);
 
@@ -252,54 +214,18 @@ PHP_METHOD(Dao_Mvc_Model_Resultset, seek){
 	is_not_equal_function(&is_different, &pointer, position);
 
 	if (DAO_IS_TRUE(&is_different)) {
-
+		convert_to_long(position);
 		dao_read_property(&type, getThis(), SL("_type"), PH_NOISY|PH_READONLY);
 
 		if (zend_is_true(&type)) {
-			/**
-			 * Here, the resultset is fetched one by one because is large
-			 */
-			dao_read_property(&result, getThis(), SL("_result"), PH_NOISY|PH_READONLY);
-			DAO_CALL_METHOD(NULL, &result, "dataseek", position);
-			dao_update_property(getThis(), SL("_pointer"), position);
-		} else {
-			/**
-			 * Here, the resultset is a small array
-			 */
-			dao_read_property(&rows, getThis(), SL("_rows"), PH_READONLY);
-
-			/**
-			 * We need to fetch the records because rows is null
-			 */
-			if (Z_TYPE(rows) == IS_NULL) {
-				dao_read_property(&result, getThis(), SL("_result"), PH_NOISY|PH_READONLY);
-				if (DAO_IS_NOT_FALSE(&result)) {
-					DAO_CALL_METHOD(&rows, &result, "fetchall");
-					dao_update_property(getThis(), SL("_rows"), &rows);
-					zval_ptr_dtor(&rows);
+			if (DAO_GT(position, &pointer) && !dao_property_array_isset_fetch(&row, getThis(), SL("_rows"), position, PH_READONLY)) {
+				zend_long pos = Z_LVAL_P(position)- Z_LVAL(pointer);
+				while(pos-->0) {
+					DAO_CALL_METHOD(NULL, getThis(), "next");
 				}
 			}
-
-			convert_to_long(position);
-
-			if(Z_TYPE(rows) == IS_ARRAY){
-				ah0 = Z_ARRVAL(rows);
-				zend_hash_internal_pointer_reset(ah0);
-
-				i = 0;
-				while (1) {
-
-					if (i >= Z_LVAL_P(position)) {
-						break;
-					}
-
-					zend_hash_move_forward(ah0);
-					i++;
-				}
-			}
-
-			dao_update_property(getThis(), SL("_pointer"), position);
 		}
+		dao_update_property(getThis(), SL("_pointer"), position);
 	}
 }
 
