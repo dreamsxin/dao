@@ -218,7 +218,7 @@ PHP_METHOD(Dao_Mvc_Model_Resultset, seek){
 		dao_read_property(&type, getThis(), SL("_type"), PH_NOISY|PH_READONLY);
 
 		if (zend_is_true(&type)) {
-			if (DAO_GT(position, &pointer) && !dao_property_array_isset_fetch(&row, getThis(), SL("_rows"), position, PH_READONLY)) {
+			if (DAO_GT(position, &pointer) && !dao_property_array_isset(getThis(), SL("_rows"), position, PH_READONLY)) {
 				zend_long pos = Z_LVAL_P(position)- Z_LVAL(pointer);
 				while(pos-->0) {
 					DAO_CALL_METHOD(NULL, getThis(), "next");
