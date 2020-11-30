@@ -100,14 +100,14 @@ PHP_METHOD(Dao_Mvc_Model_Resultset_Simple, __construct){
 
 	zval *column_map, *model, *result, *cache = NULL, *source_model = NULL, fetch_assoc = {};
 
-	dao_fetch_params(1, 3, 3, &column_map, &model, &result, &cache, &source_model);
+	dao_fetch_params(1, 3, 2, &column_map, &model, &result, &cache, &source_model);
 
 	if (!cache) {
 		cache = &DAO_GLOBAL(z_null);
 	}
 
 	if (!source_model) {
-		source_model = &DAO_GLOBAL(z_null);
+		source_model = model;
 	}
 
 	dao_update_property(getThis(), SL("_model"), model);
