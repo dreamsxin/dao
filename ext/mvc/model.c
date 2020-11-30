@@ -1703,7 +1703,7 @@ PHP_METHOD(Dao_Mvc_Model, cloneResultMap){
 		RETURN_MM();
 	}
 
-	if (source_model && Z_TYPE_P(source_model) == IS_OBJECT) {
+	if (source_model && Z_TYPE_P(source_model) == IS_OBJECT && instanceof_function(Z_OBJCE_P(source_model), dao_mvc_model_ce)) {
 		DAO_MM_CALL_METHOD(&data_types, source_model, "getdatatypes");
 		DAO_MM_ADD_ENTRY(&data_types);
 		DAO_MM_CALL_METHOD(&connection, source_model, "getreadconnection");
@@ -1820,7 +1820,7 @@ PHP_METHOD(Dao_Mvc_Model, cloneResultMapHydrate){
 		object_init(return_value);
 	}
 
-	if (source_model && Z_TYPE_P(source_model) == IS_OBJECT) {
+	if (source_model && Z_TYPE_P(source_model) == IS_OBJECT && instanceof_function(Z_OBJCE_P(source_model), dao_mvc_model_ce)) {
 		DAO_MM_CALL_METHOD(&data_types, source_model, "getdatatypes");
 		DAO_MM_ADD_ENTRY(&data_types);
 		DAO_MM_CALL_METHOD(&connection, source_model, "getreadconnection");
