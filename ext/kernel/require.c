@@ -173,6 +173,21 @@ int dao_exec_file(zval *ret, zval *object, zval *file, zval *vars, zend_array *s
 	if (symbol_table == NULL) {
 		destroy = 1;
 		symbol_table = dao_build_symtable(vars);
+	} else if (vars && Z_TYPE_P(vars) == IS_ARRAY) {
+		zend_string *var_name;
+		zval *entry;
+		ZEND_HASH_FOREACH_STR_KEY_VAL(Z_ARRVAL_P(vars), var_name, entry) {
+			zval key = {};
+			if (var_name) {	
+				/* GLOBALS protection */
+				if (zend_string_equals_literal(var_name, "GLOBALS") || zend_string_equals_literal(var_name, "this")) {
+					continue;
+				}
+
+				ZVAL_STR(&key, var_name);
+				dao_set_symbol(symbol_table, &key, entry);
+			}
+		} ZEND_HASH_FOREACH_END();
 	}
 
 	status = php_stream_open_for_zend_ex(ZSTR_VAL(filename), &file_handle, USE_PATH|STREAM_OPEN_FOR_INCLUDE);
