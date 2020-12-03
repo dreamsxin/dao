@@ -1104,13 +1104,17 @@ PHP_METHOD(Dao_Mvc_View, _engineRender){
 		}
 	}
 
+	dao_read_property(&view_params, getThis(), SL("_viewParams"), PH_NOISY|PH_READONLY);
+
 	if (unlikely(DAO_GLOBAL(debug).enable_debug)) {
 		DAO_CONCAT_SV(&debug_message, "Render View: ", view_path);
 		DAO_DEBUG_LOG(&debug_message);
 		zval_ptr_dtor(&debug_message);
+		ZVAL_STRING(&debug_message, "--vars: ");
+		DAO_DEBUG_LOG(&debug_message);
+		zval_ptr_dtor(&debug_message);
+		DAO_DEBUG_LOG(&view_params);
 	}
-
-	dao_read_property(&view_params, getThis(), SL("_viewParams"), PH_NOISY|PH_READONLY);
 
 	/**
 	 * Views are rendered in each engine
