@@ -1116,7 +1116,7 @@ PHP_METHOD(Dao_Mvc_View, _engineRender){
 			ZVAL_COPY_VALUE(&new_params, vars);
 		}
 	} else {
-		ZVAL_COPY_VALUE(&new_params, view_params);
+		ZVAL_COPY_VALUE(&new_params, &view_params);
 	}
 	if (unlikely(DAO_GLOBAL(debug).enable_debug)) {
 		DAO_CONCAT_SV(&debug_message, "Render View: ", view_path);
