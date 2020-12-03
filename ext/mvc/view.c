@@ -982,16 +982,19 @@ PHP_METHOD(Dao_Mvc_View, _loadTemplateEngines){
  */
 PHP_METHOD(Dao_Mvc_View, _engineRender){
 
-	zval *engines, *view_path, *silence, *must_clean, *absolute_path = NULL, debug_message = {}, render_level = {}, cache_level = {};
+	zval *engines, *view_path, *silence, *must_clean, *absolute_path = NULL, *vars = NULL, new_params = {}, debug_message = {}, render_level = {}, cache_level = {};
 	zval cache_mode = {}, cache = {}, not_exists = {}, views_dir_paths = {}, base_path = {}, views_dir = {}, *path;
 	zval key = {}, lifetime = {}, view_options = {}, cache_options = {}, cached_view = {};
 	zval view_params = {}, *engine, event_name = {}, status = {}, exception_message = {};
 	zend_string *str_key;
 
-	dao_fetch_params(1, 4, 1, &engines, &view_path, &silence, &must_clean, &absolute_path);
+	dao_fetch_params(1, 4, 2, &engines, &view_path, &silence, &must_clean, &absolute_path, &vars);
 
 	if (absolute_path == NULL) {
 		absolute_path = &DAO_GLOBAL(z_false);
+	}
+	if (vars == NULL) {
+		vars = &DAO_GLOBAL(z_null);
 	}
 
 	/**
@@ -1105,7 +1108,16 @@ PHP_METHOD(Dao_Mvc_View, _engineRender){
 	}
 
 	dao_read_property(&view_params, getThis(), SL("_viewParams"), PH_NOISY|PH_READONLY);
-
+	if (Z_TYPE_P(vars) == IS_ARRAY) {
+		if (Z_TYPE(view_params) == IS_ARRAY) {
+			dao_fast_array_merge(&new_params, &view_params, vars);
+			DAO_MM_ADD_ENTRY(&new_params);
+		} else {
+			ZVAL_COPY_VALUE(&new_params, vars);
+		}
+	} else {
+		ZVAL_COPY_VALUE(&new_params, view_params);
+	}
 	if (unlikely(DAO_GLOBAL(debug).enable_debug)) {
 		DAO_CONCAT_SV(&debug_message, "Render View: ", view_path);
 		DAO_DEBUG_LOG(&debug_message);
@@ -1113,7 +1125,7 @@ PHP_METHOD(Dao_Mvc_View, _engineRender){
 		ZVAL_STRING(&debug_message, "--vars: ");
 		DAO_DEBUG_LOG(&debug_message);
 		zval_ptr_dtor(&debug_message);
-		DAO_DEBUG_LOG(&view_params);
+		DAO_DEBUG_LOG(&new_params);
 	}
 
 	/**
@@ -1156,7 +1168,7 @@ PHP_METHOD(Dao_Mvc_View, _engineRender){
 			}
 			zval_ptr_dtor(&status);
 
-			DAO_MM_CALL_METHOD(NULL, engine, "render", &view_engine_path, &view_params, must_clean);
+			DAO_MM_CALL_METHOD(NULL, engine, "render", &view_engine_path, &new_params, must_clean);
 
 			/**
 			 * Call afterRenderView if there is a events manager available
@@ -1786,7 +1798,7 @@ PHP_METHOD(Dao_Mvc_View, pick){
  */
 PHP_METHOD(Dao_Mvc_View, partial){
 
-	zval *partial_path, *params = NULL, *autorender = NULL, view_params = {}, new_params = {}, partials_dir = {}, enable_partials_absolute_path = {};
+	zval *partial_path, *params = NULL, *autorender = NULL, partials_dir = {}, enable_partials_absolute_path = {};
 	zval real_path = {}, engines = {};
 
 	dao_fetch_params(1, 1, 2, &partial_path, &params, &autorender);
@@ -1797,28 +1809,6 @@ PHP_METHOD(Dao_Mvc_View, partial){
 
 	if (!autorender) {
 		autorender = &DAO_GLOBAL(z_true);
-	}
-
-	/**
-	 * If the developer pass an array of variables we create a new virtual symbol table
-	 */
-	if (Z_TYPE_P(params) == IS_ARRAY) {
-		dao_read_property(&view_params, getThis(), SL("_viewParams"), PH_NOISY|PH_COPY);
-
-		/**
-		 * Merge or assign the new params as parameters
-		 */
-		if (Z_TYPE(view_params) == IS_ARRAY) {
-			dao_fast_array_merge(&new_params, &view_params, params);
-			DAO_MM_ADD_ENTRY(&new_params);
-		} else {
-			ZVAL_COPY_VALUE(&new_params, params);
-		}
-
-		/**
-		 * Update the parameters with the new ones
-		 */
-		dao_update_property(getThis(), SL("_viewParams"), &new_params);
 	}
 
 	dao_read_property(&partials_dir, getThis(), SL("_partialsDir"), PH_NOISY|PH_READONLY);
@@ -1842,22 +1832,12 @@ PHP_METHOD(Dao_Mvc_View, partial){
 	 */
 	if (!DAO_IS_TRUE(autorender)) {
 		dao_ob_start();
-		DAO_MM_CALL_METHOD(NULL, getThis(), "_enginerender", &engines, &real_path, &DAO_GLOBAL(z_false), &DAO_GLOBAL(z_false), &enable_partials_absolute_path);
+		DAO_MM_CALL_METHOD(NULL, getThis(), "_enginerender", &engines, &real_path, &DAO_GLOBAL(z_false), &DAO_GLOBAL(z_false), &enable_partials_absolute_path, params);
 		dao_ob_get_contents(return_value);
 		dao_ob_clean();
 
 	} else {
-		DAO_MM_CALL_METHOD(NULL, getThis(), "_enginerender", &engines, &real_path, &DAO_GLOBAL(z_false), &DAO_GLOBAL(z_false), &enable_partials_absolute_path);
-	}
-
-	/**
-	 * Now we need to restore the original view parameters
-	 */
-	if (Z_TYPE_P(params) == IS_ARRAY) {
-		/**
-		 * Restore the original view params
-		 */
-		dao_update_property(getThis(), SL("_viewParams"), &view_params);
+		DAO_MM_CALL_METHOD(NULL, getThis(), "_enginerender", &engines, &real_path, &DAO_GLOBAL(z_false), &DAO_GLOBAL(z_false), &enable_partials_absolute_path, params);
 	}
 
 	RETURN_MM();
