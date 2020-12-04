@@ -22,7 +22,6 @@
 #include "cache/backend.h"
 #include "cache/backendinterface.h"
 #include "cache/exception.h"
-#include "cache/yac.h"
 
 #include "kernel/main.h"
 #include "kernel/memory.h"
@@ -151,14 +150,8 @@ PHP_METHOD(Dao_Cache_Backend_Yac, _connect)
 	zend_class_entry *ce0;
 
 	dao_read_property(&options, getThis(), SL("_options"), PH_READONLY);
-#ifdef DAO_CACHE_YAC
-	ce0 = dao_fetch_str_class(SL("Yac"), ZEND_FETCH_CLASS_AUTO | ZEND_FETCH_CLASS_SILENT);
-	if (!ce0) {
-		ce0 = dao_cache_yac_ce;
-	}
-#else
+
 	ce0 = dao_fetch_str_class(SL("Yac"), ZEND_FETCH_CLASS_AUTO);
-#endif
 
 	if (!dao_array_isset_fetch_str(&prefix, &options, SL("prefix"), PH_READONLY)) {
 		ZVAL_NULL(&prefix);
