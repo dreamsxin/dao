@@ -1558,7 +1558,7 @@ PHP_METHOD(Dao_Mvc_Model_Criteria, insert) {
 		zend_string *str_key;
 		ulong idx;
 		if (!dao_array_isset_fetch_long(&one, columns, 0, PH_READONLY) || Z_TYPE(one) != IS_ARRAY) {
-			DAO_THROW_EXCEPTION_STR(phalcon_mvc_model_exception_ce, "Values must be an array");
+			DAO_THROW_EXCEPTION_STR(dao_mvc_model_exception_ce, "Values must be an array");
 			return;
 		}
 
