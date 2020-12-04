@@ -190,7 +190,7 @@ static const zend_function_entry dao_security_method_entry[] = {
 	PHP_ME(Dao_Security, destroyToken, arginfo_dao_security_destroytoken, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Security, computeHmac, arginfo_dao_security_computehmac, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
 	PHP_ME(Dao_Security, deriveKey, arginfo_dao_security_derivekey, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
-	PHP_ME(Dao_Security, pbkdf2, arginfo_dao_security_derivekey, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
+	PHP_ME(Dao_Security, pbkdf2, arginfo_dao_security_pbkdf2, ZEND_ACC_PUBLIC | ZEND_ACC_STATIC)
 	PHP_ME(Dao_Security, getDefaultHash, arginfo_empty, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Security, setDefaultHash, arginfo_dao_security_setdefaulthash, ZEND_ACC_PUBLIC)
 	PHP_FE_END
