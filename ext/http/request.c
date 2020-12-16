@@ -192,6 +192,7 @@ DAO_INIT_CLASS(Dao_Http_Request){
 	DAO_REGISTER_CLASS_EX(Dao\\Http, Request, http_request, dao_di_injectable_ce, dao_http_request_method_entry, 0);
 
 	zend_declare_property_null(dao_http_request_ce, SL("_rawBody"), ZEND_ACC_PROTECTED);
+	zend_declare_property_null(dao_http_request_ce, SL("_JsonRawBody"), ZEND_ACC_PROTECTED);
 	zend_declare_property_null(dao_http_request_ce, SL("_put"), ZEND_ACC_PROTECTED);
 	zend_declare_property_null(dao_http_request_ce, SL("_data"), ZEND_ACC_PROTECTED);
 
@@ -855,20 +856,47 @@ PHP_METHOD(Dao_Http_Request, getRawBody)
  */
 PHP_METHOD(Dao_Http_Request, getJsonRawBody)
 {
-	zval raw_body = {}, *assoc = NULL;
-	int ac = 0;
+	zval ret = {}, *assoc = NULL, *filters = NULL, *default_value = NULL, *not_allow_empty = NULL, *recursive_level = NULL;
+	int ac = 1;
 
-	dao_fetch_params(1, 0, 1, &assoc);
+	dao_fetch_params(1, 0, 5, &assoc, &filters, &default_value, &not_allow_empty, &recursive_level);
 
-	if (assoc && zend_is_true(assoc)) {
-		ac = 1;
+	if (assoc) {
+		ac = zend_is_true(assoc) ? 1 : 0;
 	}
 
-	DAO_MM_CALL_METHOD(&raw_body, getThis(), "getrawbody");
-	DAO_MM_ADD_ENTRY(&raw_body);
-	if (Z_TYPE(raw_body) == IS_STRING) {
-		RETURN_MM_ON_FAILURE(dao_json_decode(return_value, &raw_body, ac));
+	if (!filters) {
+		filters = &DAO_GLOBAL(z_null);
 	}
+
+	if (!default_value) {
+		default_value = &DAO_GLOBAL(z_null);
+	}
+
+	if (!not_allow_empty || Z_TYPE_P(not_allow_empty) == IS_NULL) {
+		not_allow_empty = &DAO_GLOBAL(z_false);
+	}
+
+	if (!recursive_level || Z_TYPE_P(recursive_level) == IS_NULL) {
+		recursive_level = &DAO_GLOBAL(z_true);
+	}
+
+	dao_read_property(&ret, getThis(), SL("_jsonRawBody"), PH_NOISY|PH_READONLY);
+	if (Z_TYPE(ret) == IS_NULL) {
+		zval raw_body = {};
+		DAO_MM_CALL_METHOD(&raw_body, getThis(), "getrawbody");
+		DAO_MM_ADD_ENTRY(&raw_body);
+		if (Z_TYPE(raw_body) == IS_STRING) {
+			RETURN_MM_ON_FAILURE(dao_json_decode(&ret, &raw_body, ac));
+		} else {
+			array_init(&ret);
+		}
+		DAO_MM_ADD_ENTRY(&ret);
+		dao_update_property(getThis(), SL("_jsonRawBody"), &ret);
+	}
+
+	DAO_MM_RETURN_CALL_SELF("_get", &ret, &DAO_GLOBAL(z_null), filters, default_value, not_allow_empty, recursive_level);
+
 	RETURN_MM();
 }
 

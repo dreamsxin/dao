@@ -159,12 +159,12 @@ PHP_METHOD(Dao_Filter, add){
  */
 PHP_METHOD(Dao_Filter, sanitize){
 
-	zval *value, *filters, *recursive = NULL, *options = NULL, *_recursive_level = NULL, recursive_level = {};
-	zval new_value = {}, *item_value, *filter, filter_value = {}, sanizited_value = {};
+	zval *arr, *filters, *recursive = NULL, *options = NULL, *_recursive_level = NULL, recursive_level = {};
+	zval value = {}, new_value = {}, *item_value, *filter, filter_value = {}, sanizited_value = {};
 	zend_string *filter_key, *item_key;
 	ulong item_idx;
 
-	dao_fetch_params(0, 2, 3, &value, &filters, &recursive, &options, &_recursive_level);
+	dao_fetch_params(1, 2, 3, &arr, &filters, &recursive, &options, &_recursive_level);
 
 	if (!recursive || Z_TYPE_P(recursive) == IS_NULL) {
 		recursive = &DAO_GLOBAL(z_true);
@@ -177,15 +177,27 @@ PHP_METHOD(Dao_Filter, sanitize){
 	if (!_recursive_level || Z_TYPE_P(_recursive_level) != IS_LONG) {
 		ZVAL_LONG(&recursive_level, 0);
 	} else {
-		ZVAL_COPY(&recursive_level, _recursive_level);
+		ZVAL_COPY_VALUE(&recursive_level, _recursive_level);
+	}
+
+	if (Z_TYPE_P(arr) == IS_OBJECT) {
+		if (dao_method_exists_ex(arr, SL("toarray")) == SUCCESS) {
+			DAO_MM_CALL_METHOD(&value, arr, "toarray");
+		} else {
+			dao_get_object_vars(&value, arr, 1);
+		}
+		DAO_MM_ADD_ENTRY(&value);
+	} else {
+		ZVAL_COPY_VALUE(&value, arr);
 	}
 
 	/**
 	 * Apply an array of filters
 	 */
 	if (Z_TYPE_P(filters) == IS_ARRAY) {
-		ZVAL_DUP(&new_value, value);
-		if (Z_TYPE_P(value) != IS_NULL) {
+		ZVAL_DUP(&new_value, &value);
+		DAO_MM_ADD_ENTRY(&new_value);
+		if (Z_TYPE(value) != IS_NULL) {
 			ZEND_HASH_FOREACH_STR_KEY_VAL(Z_ARRVAL_P(filters), filter_key, filter) {
 				zval real_filter = {}, real_options = {}, array_value = {};
 
@@ -194,6 +206,7 @@ PHP_METHOD(Dao_Filter, sanitize){
 					if (Z_TYPE_P(filter) == IS_ARRAY) {
 						if (Z_TYPE_P(options) == IS_ARRAY) {
 							dao_fast_array_merge(&real_options, options, filter);
+							DAO_MM_ADD_ENTRY(&real_options);
 						} else {
 							ZVAL_COPY(&real_options, filter);
 						}
@@ -204,10 +217,11 @@ PHP_METHOD(Dao_Filter, sanitize){
 							array_init(&real_options);
 						}
 						dao_array_update(&real_options, &real_filter, filter, PH_COPY);
+						DAO_MM_ADD_ENTRY(&real_options);
 					}
 				} else {
-					ZVAL_COPY(&real_filter, filter);
-					ZVAL_COPY(&real_options, options);
+					ZVAL_COPY_VALUE(&real_filter, filter);
+					ZVAL_COPY_VALUE(&real_options, options);
 				}
 
 				/**
@@ -215,13 +229,13 @@ PHP_METHOD(Dao_Filter, sanitize){
 				 */
 				if (Z_TYPE(new_value) == IS_ARRAY && zend_is_true(recursive)) {
 					array_init(&array_value);
-
+					DAO_MM_ADD_ENTRY(&array_value);
 					dao_decrement(&recursive_level);
 					ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL(new_value), item_idx, item_key, item_value) {
 						if (Z_TYPE_P(item_value) == IS_ARRAY && Z_LVAL(recursive_level) > 0) {
-							DAO_CALL_METHOD(&filter_value, getThis(), "sanitize", item_value, filters, recursive, options, &recursive_level);
+							DAO_MM_CALL_METHOD(&filter_value, getThis(), "sanitize", item_value, filters, recursive, options, &recursive_level);
 						} else {
-							DAO_CALL_METHOD(&filter_value, getThis(), "_sanitize", item_value, &real_filter, &real_options);
+							DAO_MM_CALL_METHOD(&filter_value, getThis(), "_sanitize", item_value, &real_filter, &real_options);
 						}
 						if (item_key) {
 							dao_array_update_string(&array_value, item_key, &filter_value, 0);
@@ -229,31 +243,29 @@ PHP_METHOD(Dao_Filter, sanitize){
 							dao_array_update_long(&array_value, item_idx, &filter_value, 0);
 						}
 					} ZEND_HASH_FOREACH_END();
-					zval_ptr_dtor(&new_value);
 					ZVAL_COPY_VALUE(&new_value, &array_value);
 				} else {
-					DAO_CALL_METHOD(&filter_value, getThis(), "_sanitize", &new_value, &real_filter, &real_options);
-					zval_ptr_dtor(&new_value);
+					DAO_MM_CALL_METHOD(&filter_value, getThis(), "_sanitize", &new_value, &real_filter, &real_options);
+					DAO_MM_ADD_ENTRY(&filter_value);
 					ZVAL_COPY_VALUE(&new_value, &filter_value);
 				}
-				zval_ptr_dtor(&real_filter);
-				zval_ptr_dtor(&real_options);
 			} ZEND_HASH_FOREACH_END();
 		}
-		RETURN_ZVAL(&new_value, 0, 0);
+		RETURN_MM_CTOR(&new_value);
 	}
 
 	/**
 	 * Apply a single filter value
 	 */
-	if (Z_TYPE_P(value) == IS_ARRAY && zend_is_true(recursive)) {
+	if (Z_TYPE(value) == IS_ARRAY && zend_is_true(recursive)) {
 		array_init(&sanizited_value);
+		DAO_MM_ADD_ENTRY(&sanizited_value);
 		dao_decrement(&recursive_level);
-		ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL_P(value), item_idx, item_key, item_value) {
+		ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL(value), item_idx, item_key, item_value) {
 			if (Z_TYPE_P(item_value) == IS_ARRAY && Z_LVAL(recursive_level) > 0) {
-				DAO_CALL_METHOD(&filter_value, getThis(), "sanitize", item_value, filters, recursive, options, &recursive_level);
+				DAO_MM_CALL_METHOD(&filter_value, getThis(), "sanitize", item_value, filters, recursive, options, &recursive_level);
 			} else {
-				DAO_CALL_METHOD(&filter_value, getThis(), "_sanitize", item_value, filters, options);
+				DAO_MM_CALL_METHOD(&filter_value, getThis(), "_sanitize", item_value, filters, options);
 			}
 			if (item_key) {
 				dao_array_update_string(&sanizited_value, item_key, &filter_value, 0);
@@ -263,10 +275,11 @@ PHP_METHOD(Dao_Filter, sanitize){
 		} ZEND_HASH_FOREACH_END();
 
 	} else {
-		DAO_CALL_METHOD(&sanizited_value, getThis(), "_sanitize", value, filters, options);
+		DAO_MM_CALL_METHOD(&sanizited_value, getThis(), "_sanitize", &value, filters, options);
+		DAO_MM_ADD_ENTRY(&sanizited_value);
 	}
 
-	RETURN_ZVAL(&sanizited_value, 0, 0);
+	RETURN_MM_CTOR(&sanizited_value);
 }
 
 /**
@@ -432,7 +445,12 @@ PHP_METHOD(Dao_Filter, _sanitize){
 	}
 
 	if (DAO_IS_STRING(filter, "trim")) {
-		ZVAL_STR(&filtered, dao_trim(value, NULL, DAO_TRIM_BOTH));
+
+		if (Z_TYPE_P(value) == IS_STRING) {
+			ZVAL_STR(&filtered, dao_trim(value, NULL, DAO_TRIM_BOTH));
+		} else {
+			ZVAL_COPY(&filtered, value);
+		}
 		goto ph_end_0;
 	}
 
