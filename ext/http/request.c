@@ -856,13 +856,13 @@ PHP_METHOD(Dao_Http_Request, getRawBody)
  */
 PHP_METHOD(Dao_Http_Request, getJsonRawBody)
 {
-	zval ret = {}, *assoc = NULL, *filters = NULL, *default_value = NULL, *not_allow_empty = NULL, *recursive_level = NULL;
+	zval ret = {}, *name = NULL, *filters = NULL, *default_value = NULL, *not_allow_empty = NULL, *recursive_level = NULL;
 	int ac = 1;
 
-	dao_fetch_params(1, 0, 5, &assoc, &filters, &default_value, &not_allow_empty, &recursive_level);
+	dao_fetch_params(1, 0, 5, &name, &filters, &default_value, &not_allow_empty, &recursive_level);
 
-	if (assoc) {
-		ac = zend_is_true(assoc) ? 1 : 0;
+	if (!name) {
+		name = &DAO_GLOBAL(z_null);
 	}
 
 	if (!filters) {
@@ -895,7 +895,7 @@ PHP_METHOD(Dao_Http_Request, getJsonRawBody)
 		dao_update_property(getThis(), SL("_jsonRawBody"), &ret);
 	}
 
-	DAO_MM_RETURN_CALL_SELF("_get", &ret, &DAO_GLOBAL(z_null), filters, default_value, not_allow_empty, recursive_level);
+	DAO_MM_RETURN_CALL_SELF("_get", &ret, name, filters, default_value, not_allow_empty, recursive_level);
 
 	RETURN_MM();
 }
