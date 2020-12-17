@@ -1220,7 +1220,9 @@ PHP_METHOD(Dao_Dispatcher, dispatch){
 
 		/* Check if an exception has ocurred */
 		if (EG(exception)) {
-
+			if (zend_is_unwind_exit(EG(exception))) {
+				goto end;
+			}
 			ZVAL_OBJ(&exception, zend_objects_clone_obj(EG(exception)));
 
 			DAO_MM_ADD_ENTRY(&exception);
@@ -1239,6 +1241,7 @@ PHP_METHOD(Dao_Dispatcher, dispatch){
 						continue;
 					}
 				} else {
+					zend_print_zval_r(&exception, 0);
 					/* Exception was not handled, rethrow it */
 					dao_throw_exception(&exception);
 					goto end;

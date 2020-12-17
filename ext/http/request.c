@@ -117,6 +117,7 @@ PHP_METHOD(Dao_Http_Request, getLanguages);
 PHP_METHOD(Dao_Http_Request, getBestLanguage);
 PHP_METHOD(Dao_Http_Request, getBasicAuth);
 PHP_METHOD(Dao_Http_Request, getDigestAuth);
+PHP_METHOD(Dao_Http_Request, getBearerAuth);
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_http_request__get, 0, 0, 6)
 	ZEND_ARG_TYPE_INFO(0, data, IS_ARRAY, 1)
@@ -181,6 +182,7 @@ static const zend_function_entry dao_http_request_method_entry[] = {
 	PHP_ME(Dao_Http_Request, getBestLanguage, arginfo_empty, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Http_Request, getBasicAuth, arginfo_empty, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Http_Request, getDigestAuth, arginfo_empty, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Http_Request, getBearerAuth, arginfo_empty, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -1895,6 +1897,50 @@ PHP_METHOD(Dao_Http_Request, getDigestAuth){
 				}
 			} ZEND_HASH_FOREACH_END();
 			RETURN_MM();
+		}
+	}
+
+	RETURN_MM_NULL();
+}
+
+/**
+ * Gets Bearer auth info accepted by the browser/client
+ *
+ * @return array
+ */
+PHP_METHOD(Dao_Http_Request, getBearerAuth){
+
+	zval *_SERVER, *value, pattern = {}, digest = {}, matches = {}, ret = {};
+	const char *auth = NULL;
+
+	DAO_MM_INIT();
+
+	_SERVER = dao_get_global_str(SL("_SERVER"));
+	if (Z_TYPE_P(_SERVER) == IS_ARRAY) {
+		zval key = {};
+		DAO_MM_ZVAL_STRING(&key, "HTTP_AUTHORIZATION");
+
+		value = dao_hash_get(Z_ARRVAL_P(_SERVER), &key, BP_VAR_UNSET);
+		if (value && Z_TYPE_P(value) == IS_STRING) {
+			auth = Z_STRVAL_P(value);
+		} else {
+			DAO_MM_ZVAL_STRING(&key, "Authorization");
+
+			value = dao_hash_get(Z_ARRVAL_P(_SERVER), &key, BP_VAR_UNSET);
+			if (value && Z_TYPE_P(value) == IS_STRING) {
+				auth = Z_STRVAL_P(value);
+			}
+		}
+	}
+
+	if (auth) {
+		DAO_MM_ZVAL_STRING(&pattern, "#Bearer\\s(\\S+)#");
+		DAO_MM_ZVAL_STRING(&digest, auth);
+		RETURN_MM_ON_FAILURE(dao_preg_match(&ret, &pattern, &digest, &matches, 0, 0));
+		DAO_MM_ADD_ENTRY(&matches);
+
+		if (zend_is_true(&ret)) {
+			RETURN_MM_CTOR(&matches);
 		}
 	}
 
