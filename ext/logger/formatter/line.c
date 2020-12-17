@@ -211,9 +211,7 @@ PHP_METHOD(Dao_Logger_Formatter_Line, format){
 
 	if (Z_TYPE_P(message) != IS_STRING) {
 		zval tmp = {};
-		ZVAL_COPY(&tmp, message);
-		convert_to_string(&tmp);
-		//DAO_CALL_FUNCTION(&tmp, "var_export", message, &DAO_GLOBAL(z_true));
+		DAO_CALL_FUNCTION(&tmp, "json_encode", message, &DAO_GLOBAL(z_true));
 		DAO_STR_REPLACE(&new_format, &message_wildcard, &tmp, &format);
 		zval_ptr_dtor(&tmp);
 	} else {
