@@ -1007,16 +1007,16 @@ PHP_METHOD(Dao_Dispatcher, dispatch){
 		 */
 		if (dao_method_exists_ex(&handler, SL("beforeexecuteroute")) == SUCCESS) {
 			DAO_MM_CALL_METHOD(&status, &handler, "beforeexecuteroute", getThis());
-			if (DAO_IS_FALSE(&status)) {
-				continue;
-			}
-
+			DAO_MM_ADD_ENTRY(&status);
 			/**
 			 * Check if the user made a forward in the listener
 			 */
 			dao_read_property(&finished, getThis(), SL("_finished"), PH_READONLY);
 			if (DAO_IS_FALSE(&finished)) {
 				continue;
+			}
+			if (DAO_IS_FALSE(&status)) {
+				break;
 			}
 		}
 
