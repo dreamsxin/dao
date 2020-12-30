@@ -593,7 +593,7 @@ PHP_METHOD(Dao_Assets_Manager, output){
 	zval *collection, *callback, *z_type = NULL, *args = NULL, type = {}, output = {}, use_implicit_output = {}, exception_message = {};
 	zval options = {}, collection_source_path = {}, collection_target_path = {}, base_uri = {}, changed = {};
 	zval resources = {}, filters = {}, prefix = {}, type_css = {}, source_base_path = {}, target_base_path = {};
-	zval complete_target_base_uri = {}, complete_source_path = {}, complete_target_path = {}, complete_target_dir = {}, join = {}, is_directory = {};
+	zval complete_target_base_uri = {}, complete_source_path = {}, complete_target_path = {}, complete_target_dir = {}, join = {};
 	zval *resource, filtered_joined_content = {};
 	zval ds_slash = {}, tmp = {};
 	char slash[2] = {DEFAULT_SLASH, 0};
@@ -693,8 +693,7 @@ PHP_METHOD(Dao_Assets_Manager, output){
 			return;
 		}
 
-		dao_is_dir(&is_directory, &complete_target_path);
-		if (DAO_IS_TRUE(&is_directory)) {
+		if (dao_is_dir(&complete_target_path)) {
 			DAO_CONCAT_SVS(&exception_message, "Path '", &complete_target_path, "' is not a valid target path (2)");
 			DAO_MM_ADD_ENTRY(&exception_message);
 			DAO_MM_THROW_EXCEPTION_ZVAL(dao_assets_exception_ce, &exception_message);
@@ -938,13 +937,12 @@ PHP_METHOD(Dao_Assets_Manager, output){
 
 		if (zend_is_true(&filter_needed)) {
 			zend_string *ret;
-			zval path = {}, isdir = {};
+			zval path = {};
 
 			ret = zend_string_init(Z_STRVAL(target_path), Z_STRLEN(target_path), 0);
 			ZSTR_LEN(ret) = zend_dirname(ZSTR_VAL(ret), ZSTR_LEN(ret));
 			ZVAL_STR(&path, ret);
-			dao_is_dir(&isdir, &path);
-			if (!zend_is_true(&isdir)) {
+			if (!dao_is_dir(&path)) {
 				zend_long mode = 0777;
 				zend_bool recursive = 1;
 				php_stream_context *context;

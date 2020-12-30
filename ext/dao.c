@@ -702,6 +702,7 @@ static PHP_MINIT_FUNCTION(dao)
 	DAO_INIT(Dao_Image_Adapter_Imagick);
 	DAO_INIT(Dao_Registry);
 	DAO_INIT(Dao_Arr);
+	DAO_INIT(Dao_Files);
 	DAO_INIT(Dao_Matrix);
 
 	DAO_INIT(Dao_Async);

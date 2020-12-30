@@ -71,6 +71,26 @@ int dao_file_exists(zval *filename){
 	return FAILURE;
 }
 
+int dao_is_file_str(char *filename)
+{
+    zval tmp = {};
+    int ret;
+
+    php_stat(filename, strlen(filename), FS_IS_FILE, &tmp);
+    ret = zend_is_true(&tmp);
+    return ret;
+}
+
+int dao_is_file(zval *filename)
+{
+    zval tmp = {};
+    int ret;
+
+    php_stat(Z_STRVAL_P(filename), Z_STRLEN_P(filename), FS_IS_FILE, &tmp);
+    ret = zend_is_true(&tmp);
+    return ret;
+}
+
 /**
  * Compares two file paths returning 1 if the first mtime is greater or equal than the second
  */
@@ -484,14 +504,24 @@ void dao_file_put_contents(zval *return_value, zval *filename, zval *data)
 	}
 }
 
-void dao_is_dir(zval *return_value, zval *path)
+int dao_is_dir(zval *path)
 {
-	if (likely(Z_TYPE_P(path) == IS_STRING)) {
-		php_stat(Z_STRVAL_P(path), (php_stat_len)(Z_STRLEN_P(path)), FS_IS_DIR, return_value);
-	}
-	else {
-		ZVAL_FALSE(return_value);
-	}
+    zval tmp = {};
+    int ret;
+
+    php_stat(Z_STRVAL_P(path), Z_STRLEN_P(path), FS_IS_DIR, &tmp);
+    ret = zend_is_true(&tmp);
+    return ret;
+}
+
+int dao_is_dir_str(char *path)
+{
+    zval tmp = {};
+    int ret;
+
+    php_stat(path, strlen(path), FS_IS_DIR, &tmp);
+    ret = zend_is_true(&tmp);
+    return ret;
 }
 
 void dao_unlink(zval *return_value, zval *path)
@@ -638,4 +668,27 @@ int dao_is_absolutepath(zval *path)
 #else
 	return Z_STRLEN_P(path) >= 1 && Z_STRVAL_P(path)[0] == DAO_DIRECTORY_SEPARATOR[0];
 #endif
+}
+
+void dao_path_concat(zval *return_value, char* path1, int len1, char * path2, int len2)
+{
+    smart_str implstr = {0};
+    while (path1[len1-1] == DEFAULT_SLASH) {
+        len1--;
+    }
+    while (*path2 == DEFAULT_SLASH) {
+        path2++;
+        len2--;
+    }
+    smart_str_appendl(&implstr, path1, len1);
+    smart_str_appendc(&implstr, DEFAULT_SLASH);
+    smart_str_appendl(&implstr, path2, len2);
+    smart_str_0(&implstr);
+
+	if (implstr.s) {
+		RETURN_NEW_STR(implstr.s);
+	} else {
+		smart_str_free(&implstr);
+		RETURN_EMPTY_STRING();
+	}
 }

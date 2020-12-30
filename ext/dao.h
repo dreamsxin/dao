@@ -407,6 +407,7 @@
 
 #include "text.h"
 #include "arr.h"
+#include "files.h"
 #include "matrix.h"
 #include "date.h"
 #include "date/datetime.h"

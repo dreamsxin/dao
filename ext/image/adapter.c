@@ -951,9 +951,7 @@ PHP_METHOD(Dao_Image_Adapter, save){
 		dao_file_realpath(&dir, &ret);
 		convert_to_string(&dir);
 
-		dao_is_dir(&ret, &dir);
-
-		if (!zend_is_true(&ret)) {
+		if (!dao_is_dir(&dir)) {
 			zend_throw_exception_ex(dao_image_exception_ce, 0, "Directory must be writable: '%s'", Z_STRVAL(dir));
 			return;
 		}
