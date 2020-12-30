@@ -194,7 +194,7 @@ DAO_INIT_CLASS(Dao_Http_Request){
 	DAO_REGISTER_CLASS_EX(Dao\\Http, Request, http_request, dao_di_injectable_ce, dao_http_request_method_entry, 0);
 
 	zend_declare_property_null(dao_http_request_ce, SL("_rawBody"), ZEND_ACC_PROTECTED);
-	zend_declare_property_null(dao_http_request_ce, SL("_JsonRawBody"), ZEND_ACC_PROTECTED);
+	zend_declare_property_null(dao_http_request_ce, SL("_jsonRawBody"), ZEND_ACC_PROTECTED);
 	zend_declare_property_null(dao_http_request_ce, SL("_put"), ZEND_ACC_PROTECTED);
 	zend_declare_property_null(dao_http_request_ce, SL("_data"), ZEND_ACC_PROTECTED);
 
