@@ -629,12 +629,17 @@ int list_file_iterator(zend_object_iterator *iter, void *puser)
 			break;
 		case IS_OBJECT:
 		{
-			zval filename = {};
+			zval filename = {}, dummy = {};
 			spl_filesystem_object *intern = (spl_filesystem_object*)spl_filesystem_from_obj(Z_OBJ_P(value));
 			switch (intern->type) {
+				case SPL_FS_DIR:
 				case SPL_FS_FILE:
-					ZVAL_STRINGL(&filename, intern->file_name, intern->file_name_len);
-					dao_array_append(return_value, &filename, 0);
+				case SPL_FS_INFO:
+					php_stat(intern->file_name, intern->file_name_len, FS_IS_FILE, &dummy);
+					if (zend_is_true(&dummy)) {
+						ZVAL_STRINGL(&filename, intern->file_name, intern->file_name_len);
+						dao_array_append(return_value, &filename, 0);
+					}
 					break;
 				default:
 					break;
@@ -666,12 +671,17 @@ int list_dir_iterator(zend_object_iterator *iter, void *puser)
 			break;
 		case IS_OBJECT:
 		{
-			zval filename = {};
+			zval filename = {}, dummy = {};
 			spl_filesystem_object *intern = (spl_filesystem_object*)spl_filesystem_from_obj(Z_OBJ_P(value));
 			switch (intern->type) {
 				case SPL_FS_DIR:
-					ZVAL_STRINGL(&filename, intern->file_name, intern->file_name_len);
-					dao_array_append(return_value, &filename, 0);
+				case SPL_FS_FILE:
+				case SPL_FS_INFO:
+					php_stat(intern->file_name, intern->file_name_len, FS_IS_DIR, &dummy);
+					if (zend_is_true(&dummy)) {
+						ZVAL_STRINGL(&filename, intern->file_name, intern->file_name_len);
+						dao_array_append(return_value, &filename, 0);
+					}
 					break;
 				default:
 					break;
