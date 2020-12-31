@@ -147,6 +147,11 @@ PHP_METHOD(Dao_Files, createDirectory){
 		Z_PARAM_RESOURCE_EX(zcontext, 1, 0)
 	ZEND_PARSE_PARAMETERS_END_EX(RETURN_FALSE);
 
+
+	if (dao_file_exists_str(dir)) {
+		RETURN_TRUE;
+	}
+
 	context = php_stream_context_from_zval(zcontext, 0);
 
 	RETURN_BOOL(php_stream_mkdir(dir, (int)mode, (recursive ? PHP_STREAM_MKDIR_RECURSIVE : 0) | REPORT_ERRORS, context));
@@ -464,7 +469,7 @@ int rmtree_iterator(zend_object_iterator *iter, void *puser)
 		{
 			char *fname;
 			zval dummy;
-			zend_bool is_dir = false;
+			zend_bool is_dir = 0;
 			spl_filesystem_object *intern = (spl_filesystem_object*)spl_filesystem_from_obj(Z_OBJ_P(value));
 			switch (intern->type) {
 				case SPL_FS_DIR:
@@ -706,7 +711,7 @@ PHP_METHOD(Dao_Files, list){
     char *dirname = NULL;
     size_t dirname_len = 0;
 	zend_long mode = 0;
-	zend_bool recursive=false;
+	zend_bool recursive=0;
     php_stream * stream;
 
     /* parse parameters */
