@@ -23,6 +23,7 @@
 
 #include <ext/standard/file.h>
 #include <ext/standard/php_filestat.h>
+#include <ext/standard/flock_compat.h>
 #include <ext/spl/spl_directory.h>
 #include <main/php_streams.h>
 
@@ -46,7 +47,7 @@
 zend_class_entry *dao_files_ce;
 
 PHP_METHOD(Dao_Files, createDirectory);
-PHP_METHOD(Dao_Files, createFile);
+PHP_METHOD(Dao_Files, create);
 PHP_METHOD(Dao_Files, copy);
 PHP_METHOD(Dao_Files, move);
 PHP_METHOD(Dao_Files, delete);
@@ -61,8 +62,9 @@ ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_files_createdirectory, 0, 0, 1)
 	ZEND_ARG_TYPE_INFO(0, context, IS_RESOURCE, 1)
 ZEND_END_ARG_INFO()
 
-ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_files_createfile, 0, 0, 1)
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_files_create, 0, 0, 1)
 	ZEND_ARG_TYPE_INFO(0, filename, IS_STRING, 0)
+	ZEND_ARG_TYPE_INFO(0, data, IS_STRING, 1)
 ZEND_END_ARG_INFO()
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_files_copy, 0, 0, 2)
@@ -97,7 +99,7 @@ ZEND_END_ARG_INFO()
 
 static const zend_function_entry dao_files_method_entry[] = {
 	PHP_ME(Dao_Files, createDirectory, arginfo_dao_files_createdirectory, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
-	PHP_ME(Dao_Files, createFile, arginfo_dao_files_createfile, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
+	PHP_ME(Dao_Files, create, arginfo_dao_files_create, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
 	PHP_ME(Dao_Files, copy, arginfo_dao_files_copy, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
 	PHP_ME(Dao_Files, move, arginfo_dao_files_move, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
 	PHP_ME(Dao_Files, delete, arginfo_dao_files_delete, ZEND_ACC_PUBLIC|ZEND_ACC_STATIC)
@@ -180,12 +182,185 @@ PHP_METHOD(Dao_Files, RemoveDirectory){
  * @param string $filename
  * @return boolean
  */
-PHP_METHOD(Dao_Files, createFile){
+PHP_METHOD(Dao_Files, create){
 
-	zval *filename;
+	php_stream *stream;
+	char *filename;
+	size_t filename_len;
+	char *data;
+	size_t data_len;
+	size_t numbytes = 0;
+	zend_long flags = 0;
+	zval *zcontext = NULL;
+	php_stream_context *context = NULL;
+	char mode[3] = "wb";
 
-	dao_fetch_params(0, 1, 0, &filename);
+	ZEND_PARSE_PARAMETERS_START(2, 4)
+		Z_PARAM_PATH(filename, filename_len)
+		Z_PARAM_STRING(data, data_len)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_LONG(flags)
+		Z_PARAM_RESOURCE_EX(zcontext, 1, 0)
+	ZEND_PARSE_PARAMETERS_END();
+
+	context = php_stream_context_from_zval(zcontext, flags & PHP_FILE_NO_DEFAULT_CONTEXT);
+
+	if (flags & PHP_FILE_APPEND) {
+		mode[0] = 'a';
+	} else if (flags & LOCK_EX) {
+		/* check to make sure we are dealing with a regular file */
+		if (php_memnstr(filename, "://", sizeof("://") - 1, filename + filename_len)) {
+			if (strncasecmp(filename, "file://", sizeof("file://") - 1)) {
+				php_error_docref(NULL, E_WARNING, "Exclusive locks may only be set for regular files");
+				RETURN_FALSE;
+			}
+		}
+		mode[0] = 'c';
+	}
+	mode[2] = '\0';
+
+	stream = php_stream_open_wrapper_ex(filename, mode, ((flags & PHP_FILE_USE_INCLUDE_PATH) ? USE_PATH : 0) | REPORT_ERRORS, NULL, context);
+	if (stream == NULL) {
+		RETURN_FALSE;
+	}
+
+	if (flags & LOCK_EX && (!php_stream_supports_lock(stream) || php_stream_lock(stream, LOCK_EX))) {
+		php_stream_close(stream);
+		php_error_docref(NULL, E_WARNING, "Exclusive locks are not supported for this stream");
+		RETURN_FALSE;
+	}
+
+	if (mode[0] == 'c') {
+		php_stream_truncate_set_size(stream, 0);
+	}
+
+	if (data_len>0) {
+		numbytes = php_stream_write(stream, data, data_len);
+		if (numbytes != data_len) {
+			php_error_docref(NULL, E_WARNING, "Only "ZEND_LONG_FMT" of %zd bytes written, possibly out of free disk space", numbytes, data_len);
+			numbytes = -1;
+		}
+	}
+
+	php_stream_close(stream);
+
+	if (numbytes == (size_t)-1) {
+		RETURN_FALSE;
+	}
+
+	RETURN_LONG(numbytes);
 }
+
+
+/* {{{ php_copy_file
+ */
+PHPAPI int php_copy_file(const char *src, const char *dest)
+{
+	return php_copy_file_ctx(src, dest, 0, NULL);
+}
+/* }}} */
+
+/* {{{ php_copy_file_ex
+ */
+PHPAPI int php_copy_file_ex(const char *src, const char *dest, int src_flg)
+{
+	return php_copy_file_ctx(src, dest, src_flg, NULL);
+}
+/* }}} */
+
+/* {{{ php_copy_file_ctx
+ */
+PHPAPI int php_copy_file_ctx(const char *src, const char *dest, int src_flg, php_stream_context *ctx)
+{
+	php_stream *srcstream = NULL, *deststream = NULL;
+	int ret = FAILURE;
+	php_stream_statbuf src_s, dest_s;
+
+	switch (php_stream_stat_path_ex(src, 0, &src_s, ctx)) {
+		case -1:
+			/* non-statable stream */
+			goto safe_to_copy;
+			break;
+		case 0:
+			break;
+		default: /* failed to stat file, does not exist? */
+			return ret;
+	}
+	if (S_ISDIR(src_s.sb.st_mode)) {
+		php_error_docref(NULL, E_WARNING, "The first argument to copy() function cannot be a directory");
+		return FAILURE;
+	}
+
+	switch (php_stream_stat_path_ex(dest, PHP_STREAM_URL_STAT_QUIET | PHP_STREAM_URL_STAT_NOCACHE, &dest_s, ctx)) {
+		case -1:
+			/* non-statable stream */
+			goto safe_to_copy;
+			break;
+		case 0:
+			break;
+		default: /* failed to stat file, does not exist? */
+			return ret;
+	}
+	if (S_ISDIR(dest_s.sb.st_mode)) {
+		php_error_docref(NULL, E_WARNING, "The second argument to copy() function cannot be a directory");
+		return FAILURE;
+	}
+	if (!src_s.sb.st_ino || !dest_s.sb.st_ino) {
+		goto no_stat;
+	}
+	if (src_s.sb.st_ino == dest_s.sb.st_ino && src_s.sb.st_dev == dest_s.sb.st_dev) {
+		return ret;
+	} else {
+		goto safe_to_copy;
+	}
+no_stat:
+	{
+		char *sp, *dp;
+		int res;
+
+		if ((sp = expand_filepath(src, NULL)) == NULL) {
+			return ret;
+		}
+		if ((dp = expand_filepath(dest, NULL)) == NULL) {
+			efree(sp);
+			goto safe_to_copy;
+		}
+
+		res =
+#ifndef PHP_WIN32
+			!strcmp(sp, dp);
+#else
+			!strcasecmp(sp, dp);
+#endif
+
+		efree(sp);
+		efree(dp);
+		if (res) {
+			return ret;
+		}
+	}
+safe_to_copy:
+
+	srcstream = php_stream_open_wrapper_ex(src, "rb", src_flg | REPORT_ERRORS, NULL, ctx);
+
+	if (!srcstream) {
+		return ret;
+	}
+
+	deststream = php_stream_open_wrapper_ex(dest, "wb", REPORT_ERRORS, NULL, ctx);
+
+	if (srcstream && deststream) {
+		ret = php_stream_copy_to_stream_ex(srcstream, deststream, PHP_STREAM_COPY_ALL, NULL);
+	}
+	if (srcstream) {
+		php_stream_close(srcstream);
+	}
+	if (deststream) {
+		php_stream_close(deststream);
+	}
+	return ret;
+}
+/* }}} */
 
 /**
  * 
@@ -195,10 +370,29 @@ PHP_METHOD(Dao_Files, createFile){
  * @return boolean
  */
 PHP_METHOD(Dao_Files, copy){
+	char *source, *target;
+	size_t source_len, target_len;
+	zval *zcontext = NULL;
+	php_stream_context *context;
 
-	zval *source, *target;
+	ZEND_PARSE_PARAMETERS_START(2, 3)
+		Z_PARAM_PATH(source, source_len)
+		Z_PARAM_PATH(target, target_len)
+		Z_PARAM_OPTIONAL
+		Z_PARAM_RESOURCE_EX(zcontext, 1, 0)
+	ZEND_PARSE_PARAMETERS_END();
 
-	dao_fetch_params(0, 2, 0, &source, &target);
+	if (php_check_open_basedir(source)) {
+		RETURN_FALSE;
+	}
+
+	context = php_stream_context_from_zval(zcontext, 0);
+
+	if (php_copy_file_ctx(source, target, 0, context) == SUCCESS) {
+		RETURN_TRUE;
+	} else {
+		RETURN_FALSE;
+	}
 }
 
 /**
