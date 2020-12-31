@@ -186,6 +186,7 @@ PHP_METHOD(Dao_Http_Parser, __construct);
 PHP_METHOD(Dao_Http_Parser, status);
 PHP_METHOD(Dao_Http_Parser, execute);
 PHP_METHOD(Dao_Http_Parser, parseCookie);
+PHP_METHOD(Dao_Http_Parser, isKeepAlive);
 
 ZEND_BEGIN_ARG_INFO_EX(arginfo_dao_http_parser___construct, 0, 0, 0)
 	ZEND_ARG_TYPE_INFO(0, type, IS_LONG, 1)
@@ -205,6 +206,7 @@ static const zend_function_entry dao_http_parser_method_entry[] = {
 	PHP_ME(Dao_Http_Parser, status, arginfo_empty, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Http_Parser, execute, arginfo_dao_http_parser_execute, ZEND_ACC_PUBLIC)
 	PHP_ME(Dao_Http_Parser, parseCookie, arginfo_dao_http_parser_parsecookies, ZEND_ACC_PUBLIC)
+	PHP_ME(Dao_Http_Parser, isKeepAlive, arginfo_empty, ZEND_ACC_PUBLIC)
 	PHP_FE_END
 };
 
@@ -407,4 +409,18 @@ PHP_METHOD(Dao_Http_Parser, parseCookie){
 		}
 	} ZEND_HASH_FOREACH_END();
 	RETURN_MM();
+}
+
+/**
+ * Whether or not to allow persistent connections
+ *
+ * @return boolean
+ */
+PHP_METHOD(Dao_Http_Parser, isKeepAlive){
+
+	dao_http_parser_object *intern;
+
+	intern = dao_http_parser_object_from_obj(Z_OBJ_P(getThis()));
+
+	RETURN_LONG(intern->data->parser->flags & F_CONNECTION_KEEP_ALIVE);
 }
