@@ -40,6 +40,7 @@ void dao_possible_autoload_filepath2(zval *return_value, zval *class_name, zval 
 int dao_is_dir(zval *path);
 int dao_is_dir_str(char *path);
 void dao_unlink(zval *return_value, zval *path);
+int dao_unlink_str(char *path);
 void dao_filemtime(zval *return_value, zval *path);
 void dao_basename(zval *return_value, zval *path);
 
