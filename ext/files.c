@@ -610,6 +610,80 @@ int list_iterator(zend_object_iterator *iter, void *puser)
 	return ZEND_HASH_APPLY_KEEP;
 }
 
+int list_file_iterator(zend_object_iterator *iter, void *puser)
+{
+	zval *return_value = (zval*)puser;
+	zval *value;
+
+	value = iter->funcs->get_current_data(iter);
+	if (EG(exception)) {
+		return ZEND_HASH_APPLY_STOP;
+	}
+	if (!value) {
+		zend_throw_exception_ex(spl_ce_UnexpectedValueException, 0, "Iterator returned no value");
+		return ZEND_HASH_APPLY_STOP;
+	}
+
+	switch (Z_TYPE_P(value)) {
+		case IS_STRING:
+			break;
+		case IS_OBJECT:
+		{
+			zval filename = {};
+			spl_filesystem_object *intern = (spl_filesystem_object*)spl_filesystem_from_obj(Z_OBJ_P(value));
+			switch (intern->type) {
+				case SPL_FS_FILE:
+					ZVAL_STRINGL(&filename, intern->file_name, intern->file_name_len);
+					dao_array_append(return_value, &filename, 0);
+					break;
+				default:
+					break;
+			}
+			break;
+		}
+		default:
+			break;
+	}
+	return ZEND_HASH_APPLY_KEEP;
+}
+
+int list_dir_iterator(zend_object_iterator *iter, void *puser)
+{
+	zval *return_value = (zval*)puser;
+	zval *value;
+
+	value = iter->funcs->get_current_data(iter);
+	if (EG(exception)) {
+		return ZEND_HASH_APPLY_STOP;
+	}
+	if (!value) {
+		zend_throw_exception_ex(spl_ce_UnexpectedValueException, 0, "Iterator returned no value");
+		return ZEND_HASH_APPLY_STOP;
+	}
+
+	switch (Z_TYPE_P(value)) {
+		case IS_STRING:
+			break;
+		case IS_OBJECT:
+		{
+			zval filename = {};
+			spl_filesystem_object *intern = (spl_filesystem_object*)spl_filesystem_from_obj(Z_OBJ_P(value));
+			switch (intern->type) {
+				case SPL_FS_DIR:
+					ZVAL_STRINGL(&filename, intern->file_name, intern->file_name_len);
+					dao_array_append(return_value, &filename, 0);
+					break;
+				default:
+					break;
+			}
+			break;
+		}
+		default:
+			break;
+	}
+	return ZEND_HASH_APPLY_KEEP;
+}
+
 /**
  * 
  *
@@ -658,7 +732,18 @@ PHP_METHOD(Dao_Files, list){
 		}
 
 		array_init(return_value);
-		spl_iterator_apply(&iteriter, (spl_iterator_apply_func_t) list_iterator, (void *) return_value);
+		switch (mode) {
+			case 1:	// file
+				spl_iterator_apply(&iteriter, (spl_iterator_apply_func_t) list_file_iterator, (void *) return_value);
+				break;
+			case 2:	// dir
+				spl_iterator_apply(&iteriter, (spl_iterator_apply_func_t) list_dir_iterator, (void *) return_value);
+				break;
+			default:
+				spl_iterator_apply(&iteriter, (spl_iterator_apply_func_t) list_iterator, (void *) return_value);
+				break;
+
+		}
 		zval_ptr_dtor(&path);
 		zval_ptr_dtor(&iter);
 		zval_ptr_dtor(&iteriter);
