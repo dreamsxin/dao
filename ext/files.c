@@ -182,9 +182,10 @@ PHP_METHOD(Dao_Files, RemoveDirectory){
 }
 
 /**
- * 
+ * Create a file
  *
  * @param string $filename
+ * @param string $data
  * @return boolean
  */
 PHP_METHOD(Dao_Files, create){
