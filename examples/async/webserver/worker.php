@@ -32,67 +32,30 @@ while ($socket = Dao\Async\Network\TcpSocket::import($ipc)) {
 				if ($parser->status() == \Dao\Http\Parser::STATUS_END) {
 					$uri = \Dao\Arr::get($ret, 'QUERY_STRING');
 					$body = \Dao\Arr::get($ret, 'BODY');
-					break;
+
+					$app = new \Dao\Mvc\Micro();
+
+					$app->get('/', function () {
+						return "<h1>Welcome!</h1>";
+					});
+
+					$sendchunk = $app->handle($uri);
+					$sendchunk = \sprintf("HTTP/1.1 200 OK\r\nServer: webserver\r\nContent-Type: text/html\r\nTransfer-Encoding: chunked\r\nConnection: %s\r\n\r\n%x\r\n%s\r\n0\r\n\r\n", ($parser->isKeepAlive() ? 'Keep-Alive' : 'Closed'), \strlen($sendchunk), $sendchunk);
+					$socket->write($sendchunk);
+					if (!$parser->isKeepAlive()) {
+						break;
+					} else {
+						$parser = new \Dao\Http\Parser();
+					}
 				}
 			}
 
-			if (empty($ret)) {
-				$socket->close();
-				return;
-			}
-
-			/*
-			$sendchunk = 'hello world';
-			$sendchunk = \sprintf("HTTP/1.1 200 OK\r\nServer: webserver\r\nContent-Type: text/html\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n%x\r\n%s\r\n0\r\n\r\n", \strlen($sendchunk), $sendchunk);
+			$socket->close();
+		} catch (\Error $e) {
+			$sendchunk = "<h1>Error!</h1>";
+			$sendchunk = \sprintf("HTTP/1.1 400 NOT FOUND\r\nServer: webserver\r\nContent-Type: text/html\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n%x\r\n%s\r\n0\r\n\r\n", \strlen($sendchunk), $sendchunk);
 			$socket->write($sendchunk);
-			return;
-			*/
-
-			$app = new \Dao\Mvc\Micro();
-
-			// 超始路由
-			$app->get('/', function () use ($socket) {
-				
-				$sendchunk = "<h1>Welcome!</h1>";
-
-				//debug($sendchunk, __LINE__);
-				$sendchunk = \sprintf("HTTP/1.1 200 OK\r\nServer: webserver\r\nContent-Type: text/html\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n%x\r\n%s\r\n0\r\n\r\n", \strlen($sendchunk), $sendchunk);
-				$socket->write($sendchunk);
-			});
-
-			$app->handle($uri);
-			return;
-
-			$di = new \Dao\DI;
-			$di->set('dispatcher', function () {
-				$dispatcher = new \Dao\Mvc\Dispatcher();
-				return $dispatcher;
-			}, TRUE);
-			$di->set('request', function () {
-				$request = new \Dao\Http\Request();
-				return $request;
-			}, TRUE);
-			$di->set('response', function () {
-				$response = new \Dao\Http\Response();
-				return $response;
-			}, TRUE);
-			$di->set('router', function () {
-				$router = new \Dao\Mvc\Router();
-				return $router;
-			}, TRUE);
-			$di->set('view', function () {
-				$view = new \Dao\Mvc\View();
-				$view->setBasePath(__DIR__.DIRECTORY_SEPARATOR.'mvc/views');
-				return $view;
-			}, TRUE);
-
-			$application = new \Dao\Mvc\Application;
-			$application->useImplicitView(false);
-			$sendchunk = $application->handle($uri)->getContent();
-
-			//debug($sendchunk, __LINE__);
-			$sendchunk = \sprintf("HTTP/1.1 200 OK\r\nServer: webserver\r\nContent-Type: text/html\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n%x\r\n%s\r\n0\r\n\r\n", \strlen($sendchunk), $sendchunk);
-			$socket->write($sendchunk);
+			debug($e->getMessage(), __LINE__);
 		} catch (\Throwable $e) {
 			$sendchunk = "<h1>Not found!</h1>";
 			$sendchunk = \sprintf("HTTP/1.1 404 NOT FOUND\r\nServer: webserver\r\nContent-Type: text/html\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n%x\r\n%s\r\n0\r\n\r\n", \strlen($sendchunk), $sendchunk);
