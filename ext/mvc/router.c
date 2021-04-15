@@ -1,3 +1,4 @@
+
 /*
   +------------------------------------------------------------------------+
   | Dao Framework                                                          |
@@ -157,13 +158,40 @@ static const zend_function_entry dao_mvc_router_method_entry[] = {
 	PHP_FE_END
 };
 
+#if DAO_TREEROUTER
+zend_object_handlers dao_mvc_router_object_handlers;
+zend_object* dao_mvc_router_object_create_handler(zend_class_entry *ce)
+{
+	dao_mvc_router_object *intern = ecalloc(1, sizeof(dao_mvc_router_object) + zend_object_properties_size(ce));
+	intern->std.ce = ce;
+
+	zend_object_std_init(&intern->std, ce);
+	object_properties_init(&intern->std, ce);
+	intern->std.handlers = &dao_mvc_router_object_handlers;
+
+    intern->tree = r3_tree_create(10);
+
+	return &intern->std;
+}
+
+void dao_mvc_router_object_free_handler(zend_object *object)
+{
+	dao_mvc_router_object *intern = dao_mvc_router_object_from_obj(object);
+
+    r3_tree_free(intern->tree);
+}
+#endif
+
 /**
  * Dao\Mvc\Router initializer
  */
 DAO_INIT_CLASS(Dao_Mvc_Router){
 
+#if DAO_TREEROUTER
+	DAO_REGISTER_CLASS_CREATE_OBJECT_EX(Dao\\Mvc, Router, mvc_router, dao_router_ce, dao_mvc_router_method_entry, 0);
+#else
 	DAO_REGISTER_CLASS_EX(Dao\\Mvc, Router, mvc_router, dao_router_ce, dao_mvc_router_method_entry, 0);
-
+#endif
 	zend_declare_property_null(dao_mvc_router_ce, SL("_uriSource"), ZEND_ACC_PROTECTED);
 	zend_declare_property_null(dao_mvc_router_ce, SL("_routes"), ZEND_ACC_PROTECTED);
 	zend_declare_property_null(dao_mvc_router_ce, SL("_routesNameLookup"), ZEND_ACC_PROTECTED);
@@ -173,6 +201,7 @@ DAO_INIT_CLASS(Dao_Mvc_Router){
 	zend_declare_property_null(dao_mvc_router_ce, SL("_removeExtraSlashes"), ZEND_ACC_PROTECTED);
 	zend_declare_property_null(dao_mvc_router_ce, SL("_notFoundPaths"), ZEND_ACC_PROTECTED);
 	zend_declare_property_bool(dao_mvc_router_ce, SL("_isExactControllerName"), 0, ZEND_ACC_PROTECTED);
+	zend_declare_property_null(dao_mvc_router_ce, SL("_routes"), ZEND_ACC_PROTECTED);
 
 	zend_declare_class_constant_long(dao_mvc_router_ce, SL("URI_SOURCE_GET_URL"), 0);
 	zend_declare_class_constant_long(dao_mvc_router_ce, SL("URI_SOURCE_SERVER_REQUEST_URI"), 1);
@@ -189,9 +218,12 @@ DAO_INIT_CLASS(Dao_Mvc_Router){
  */
 PHP_METHOD(Dao_Mvc_Router, __construct){
 
-	zval *default_routes = NULL, routes = {}, paths = {}, route = {}, params_pattern = {};
+	zval *default_routes = NULL, paths = {}, route = {}, params_pattern = {};
+#ifdef DAO_TREEROUTER
+	dao_mvc_router_object *intern = dao_mvc_router_object_from_obj(Z_OBJ_P(getThis()));
+#endif
 
-	dao_fetch_params(0, 0, 1, &default_routes);
+	dao_fetch_params(1, 0, 1, &default_routes);
 
 	dao_update_property_empty_array(getThis(), SL("_defaultParams"));
 
@@ -199,44 +231,65 @@ PHP_METHOD(Dao_Mvc_Router, __construct){
 		default_routes = &DAO_GLOBAL(z_true);
 	}
 
-	array_init(&routes);
 	if (DAO_IS_TRUE(default_routes)) {
+		zval route_id = {};
 		/**
 		 * Two routes are added by default to match /:controller/:action and
 		 * /:controller/:action/:params
 		 */
 		array_init_size(&paths, 1);
+		DAO_MM_ADD_ENTRY(&paths);
+#ifdef DAO_TREEROUTER
+		dao_array_update_string_str(&paths, IS(controller), ISL(controller), 0);
+#else
 		dao_array_update_string_long(&paths, IS(controller), 1, 0);
-
-		ZVAL_STRING(&params_pattern, "#^/([a-zA-Z0-9_-]++)/?+$#");
+#endif
+		DAO_MM_ZVAL_STRING(&params_pattern, "#^/([a-zA-Z0-9_-]++)/?+$#");
 
 		object_init_ex(&route, dao_mvc_router_route_ce);
-		DAO_CALL_METHOD(NULL, &route, "__construct", &params_pattern, &paths);
-		dao_array_append(&routes, &route, 0);
+		DAO_MM_ADD_ENTRY(&route);
+		DAO_MM_CALL_METHOD(NULL, &route, "__construct", &params_pattern, &paths);
+		DAO_MM_CALL_METHOD(&route_id, &route, "getrouteid");
+		DAO_MM_ADD_ENTRY(&route_id);
 
-		zval_ptr_dtor(&paths);
-		zval_ptr_dtor(&params_pattern);
+		dao_update_property_array(getThis(), SL("_routes"), &route_id, &route);
 
-
+#ifdef DAO_TREEROUTER
+		r3_tree_insert_routel(intern->tree, R3_METHOD_ANY, "/{controller}", sizeof("/{controller}") - 1, (void *)Z_LVAL(route_id));
+#endif
 		array_init_size(&paths, 3);
+
+		DAO_MM_ADD_ENTRY(&paths);
+#ifdef DAO_TREEROUTER
+		dao_array_update_string_str(&paths, IS(controller), ISL(controller), 0);
+		dao_array_update_string_str(&paths, IS(action), ISL(action), 0);
+		dao_array_update_string_str(&paths, IS(params), ISL(params), 0);
+#else
 		dao_array_update_string_long(&paths, IS(controller), 1, 0);
 		dao_array_update_string_long(&paths, IS(action), 2, 0);
 		dao_array_update_string_long(&paths, IS(params), 3, 0);
+#endif
 
-		ZVAL_STRING(&params_pattern, "#^/([a-zA-Z0-9_-]++)/([a-zA-Z0-9\\._]++)(/.*+)?+$#");
+		DAO_MM_ZVAL_STRING(&params_pattern, "#^/([a-zA-Z0-9_-]++)/([a-zA-Z0-9\\._]++)(/.*+)?+$#");
 
 		object_init_ex(&route, dao_mvc_router_route_ce);
+		DAO_MM_ADD_ENTRY(&route);
 		DAO_CALL_METHOD(NULL, &route, "__construct", &params_pattern, &paths);
-		dao_array_append(&routes, &route, 0);
-
-		zval_ptr_dtor(&paths);
-		zval_ptr_dtor(&params_pattern);
+		DAO_MM_CALL_METHOD(&route_id, &route, "getrouteid");
+		DAO_MM_ADD_ENTRY(&route_id);
+		
+		dao_update_property_array(getThis(), SL("_routes"), &route_id, &route);
+#ifdef DAO_TREEROUTER
+		r3_tree_insert_routel(intern->tree, R3_METHOD_ANY, "/{controller}/{action}", sizeof("/{controller}/{action}") - 1, (void *)Z_LVAL(route_id));
+		r3_tree_insert_routel(intern->tree, R3_METHOD_ANY, "/{controller}/{action}/{params:.*}", sizeof("/{controller}/{action}/{params:.*}") - 1, (void *)Z_LVAL(route_id));
+		if (r3_tree_compile(intern->tree, NULL) != 0) { //  != SUCCESS
+		}
+#endif
 	}
 
 	dao_update_property_empty_array(getThis(), SL("_params"));
-	dao_update_property(getThis(), SL("_routes"), &routes);
 	dao_update_property_empty_array(getThis(), SL("_routesNameLookup"));
-	zval_ptr_dtor(&routes);
+	RETURN_MM();
 }
 
 /**
@@ -437,8 +490,14 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 	zval *uri = NULL, real_uri = {}, status = {}, removeextraslashes = {}, handled_uri = {}, route_found = {}, params = {}, service = {}, dependency_injector = {}, request = {}, debug_message = {}, event_name = {};
 	zval all_case_sensitive = {}, current_host_name = {}, routes = {}, *route = NULL, matches = {}, parts = {}, namespace_name = {}, default_namespace = {}, module = {}, default_module = {}, exact = {};
 	zval controller = {}, default_handler = {}, action = {}, default_action = {}, mode = {}, http_method = {}, action_name = {}, params_str = {}, str_params = {}, params_merge = {}, default_params = {};
+	zval found_route = {}, paths = {};
 	zend_string *str_key;
 	ulong idx;
+#ifdef DAO_TREEROUTER
+	match_entry * entry;
+	R3Route *matched_route;
+	dao_mvc_router_object *intern = dao_mvc_router_object_from_obj(Z_OBJ_P(getThis()));
+#endif
 
 	dao_fetch_params(1, 0, 1, &uri);
 
@@ -518,10 +577,69 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 	DAO_MM_CALL_METHOD(&all_case_sensitive, getThis(), "getcasesensitive");
 	DAO_MM_ADD_ENTRY(&all_case_sensitive);
 
+#ifdef DAO_TREEROUTER
+	if (unlikely(DAO_GLOBAL(debug).enable_debug)) {
+		ZVAL_STRING(&debug_message, "--Use TreeRoutes");
+		DAO_DEBUG_LOG(&debug_message);
+		zval_ptr_dtor(&debug_message);
+	}
+
+	if (zend_is_true(&all_case_sensitive)) {
+		dao_strtolower_inplace(&handled_uri);
+	}
+
+	entry = match_entry_create(Z_STRVAL(handled_uri));
+	if (entry != NULL) {
+		zval http_scheme = {};
+		DAO_MM_CALL_METHOD(&http_scheme, &request, "getscheme");
+		DAO_MM_ADD_ENTRY(&http_scheme);
+
+		if (!strcmp(Z_STRVAL(http_scheme), "https")) {
+			entry->http_scheme = R3_SCHEME_HTTPS;
+		} else {
+			entry->http_scheme = R3_SCHEME_HTTP;
+		}
+		entry->host.base = Z_STRVAL(current_host_name);
+		entry->host.len = Z_STRLEN(current_host_name);
+
+		entry->request_method = R3_METHOD_ANY;
+		if (Z_TYPE(http_method) == IS_STRING) {
+			if (!strcmp(Z_STRVAL(http_method), "GET")) {
+				entry->request_method = R3_METHOD_GET;
+			} else if (!strcmp(Z_STRVAL(http_method), "POST")) {
+				entry->request_method = R3_METHOD_POST;
+			} else if (!strcmp(Z_STRVAL(http_method), "PUT")) {
+				entry->request_method = R3_METHOD_PUT;
+			} else if (!strcmp(Z_STRVAL(http_method), "DELETE")) {
+				entry->request_method = R3_METHOD_DELETE;
+			} else if (!strcmp(Z_STRVAL(http_method), "PATCH")) {
+				entry->request_method = R3_METHOD_PATCH;
+			} else if (!strcmp(Z_STRVAL(http_method), "HEAD")) {
+				entry->request_method = R3_METHOD_HEAD;
+			} else if (!strcmp(Z_STRVAL(http_method), "OPTIONS")) {
+				entry->request_method = R3_METHOD_OPTIONS;
+			}
+		}
+		matched_route = r3_tree_match_route(intern->tree, entry);
+		if (matched_route != NULL) {
+			int i = 0;
+			if (dao_array_isset_fetch_long(&found_route, &routes, (zend_ulong)matched_route->data, PH_READONLY)) {
+				dao_update_property(getThis(), SL("_matchedRoute"), &found_route);
+				ZVAL_TRUE(&route_found);
+			}
+			array_init(&matches);
+			DAO_MM_ADD_ENTRY(&matches);
+			for (i = 0; i < entry->vars.slugs.size; i++) {
+				dao_array_update_str_str(&matches, entry->vars.slugs.entries[i].base, entry->vars.slugs.entries[i].len, (char*)entry->vars.tokens.entries[i].base, entry->vars.tokens.entries[i].len, 0);
+			}
+		}
+		match_entry_free(entry);
+	}
+	goto ROUTEFOUNDED;
+#endif
 	ZEND_HASH_REVERSE_FOREACH_VAL(Z_ARRVAL(routes), route) {
 		zval case_sensitive = {}, methods = {}, match_method = {}, hostname = {}, prefix = {}, regex_host_name = {}, matched = {};
-		zval pattern = {}, case_pattern = {}, before_match = {}, before_match_params = {}, paths = {};
-		zval converters = {}, *position;
+		zval pattern = {}, case_pattern = {}, before_match = {}, before_match_params = {};
 
 		DAO_MM_CALL_METHOD(&case_sensitive, route, "getcasesensitive");
 		DAO_MM_ADD_ENTRY(&case_sensitive);
@@ -673,99 +791,6 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 			}
 
 			if (zend_is_true(&route_found)) {
-				if (unlikely(DAO_GLOBAL(debug).enable_debug)) {
-					ZVAL_STRING(&debug_message, "--Found matches: ");
-					DAO_DEBUG_LOG(&debug_message);
-					zval_ptr_dtor(&debug_message);
-					DAO_DEBUG_LOG(&matches);
-				}
-
-				/**
-				 * Start from the default paths
-				 */
-				DAO_MM_CALL_METHOD(&paths, route, "getpaths");
-				DAO_MM_ADD_ENTRY(&paths);
-				DAO_MM_ZVAL_DUP(&parts, &paths);
-
-				if (unlikely(DAO_GLOBAL(debug).enable_debug)) {
-					ZVAL_STRING(&debug_message, "--Route paths: ");
-					DAO_DEBUG_LOG(&debug_message);
-					zval_ptr_dtor(&debug_message);
-					DAO_DEBUG_LOG(&paths);
-				}
-
-				/**
-				 * Check if the matches has variables
-				 */
-				if (Z_TYPE(matches) == IS_ARRAY && Z_TYPE(paths) == IS_ARRAY) {
-					/**
-					 * Get the route converters if any
-					 */
-					DAO_MM_CALL_METHOD(&converters, route, "getconverters");
-					DAO_MM_ADD_ENTRY(&converters);
-
-					ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL(paths), idx, str_key, position) {
-						zval tmp = {}, match_position = {}, converter = {}, parameters = {}, converted_part = {};
-						if (str_key) {
-							ZVAL_STR(&tmp, str_key);
-						} else {
-							ZVAL_LONG(&tmp, idx);
-						}
-						if (!str_key || str_key->val[0] != '\0') {
-							if (dao_array_isset_fetch(&match_position, &matches, position, PH_READONLY)) {
-								/* Check if the part has a converter */
-								if (dao_array_isset_fetch(&converter, &converters, &tmp, PH_READONLY)) {
-									array_init_size(&parameters, 1);
-									dao_array_append(&parameters, &match_position, PH_COPY);
-									DAO_MM_ADD_ENTRY(&parameters);
-									DAO_MM_CALL_USER_FUNC_ARRAY(&converted_part, &converter, &parameters);
-
-									dao_array_update(&parts, &tmp, &converted_part, 0);
-								} else {
-									/* Update the parts if there is no converter */
-									dao_array_update(&parts, &tmp, &match_position, PH_COPY);
-								}
-							} else if (dao_array_isset_fetch(&converter, &converters, &tmp, PH_READONLY)) {
-								array_init_size(&parameters, 1);
-								dao_array_append(&parameters, position, PH_COPY);
-								DAO_MM_ADD_ENTRY(&parameters);
-								DAO_MM_CALL_USER_FUNC_ARRAY(&converted_part, &converter, &parameters);
-
-								dao_array_update(&parts, &tmp, &converted_part, 0);
-							}
-						}
-					} ZEND_HASH_FOREACH_END();
-
-					/**
-					 * Update the matches generated by preg_match
-					 */
-					dao_update_property(getThis(), SL("_matches"), &matches);
-				} else {
-					/**
-					 * Get the route converters if any
-					 */
-					DAO_MM_CALL_METHOD(&converters, route, "getconverters");
-					DAO_MM_ADD_ENTRY(&converters);
-
-					ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL(paths), idx, str_key, position) {
-						zval tmp = {}, converter = {}, parameters = {}, converted_part = {};
-						if (str_key) {
-							ZVAL_STR(&tmp, str_key);
-						} else {
-							ZVAL_LONG(&tmp, idx);
-						}
-						if (!str_key || str_key->val[0] != '\0') {
-							if (dao_array_isset_fetch(&converter, &converters, &tmp, PH_READONLY)) {
-								array_init_size(&parameters, 1);
-								dao_array_append(&parameters, position, PH_COPY);
-								DAO_MM_ADD_ENTRY(&parameters);
-								DAO_MM_CALL_USER_FUNC_ARRAY(&converted_part, &converter, &parameters);
-
-								dao_array_update(&parts, &tmp, &converted_part, 0);
-							}
-						}
-					} ZEND_HASH_FOREACH_END();
-				}
 				dao_update_property(getThis(), SL("_matchedRoute"), route);
 				break;
 			}
@@ -775,11 +800,121 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 				DAO_DEBUG_LOG(&debug_message);
 				zval_ptr_dtor(&debug_message);
 			}
-		} else if (likely(DAO_GLOBAL(mvc).enable_router_events)) {
+		} else {
 			DAO_MM_ZVAL_STRING(&event_name, "router:notMatchedRoute");
 			DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name, route);
 		}
 	} ZEND_HASH_FOREACH_END();
+
+ROUTEFOUNDED:
+
+	if (zend_is_true(&route_found)) {
+		if (unlikely(DAO_GLOBAL(debug).enable_debug)) {
+			ZVAL_STRING(&debug_message, "--Found matches: ");
+			DAO_DEBUG_LOG(&debug_message);
+			zval_ptr_dtor(&debug_message);
+			DAO_DEBUG_LOG(&matches);
+		}
+
+		/**
+		 * Start from the default paths
+		 */
+		DAO_MM_CALL_METHOD(&paths, &found_route, "getpaths");
+		DAO_MM_ADD_ENTRY(&paths);
+		if (Z_TYPE(paths) == IS_ARRAY) {
+			DAO_MM_ZVAL_DUP(&parts, &paths);
+		}
+
+		if (unlikely(DAO_GLOBAL(debug).enable_debug)) {
+			ZVAL_STRING(&debug_message, "--Route paths: ");
+			DAO_DEBUG_LOG(&debug_message);
+			zval_ptr_dtor(&debug_message);
+			DAO_DEBUG_LOG(&paths);
+		}
+
+		/**
+		 * Check if the matches has variables
+		 */
+
+		if (Z_TYPE(matches) == IS_ARRAY) {
+			if (Z_TYPE(paths) == IS_ARRAY) {
+				zval converters = {}, *position;
+				/**
+				 * Get the route converters if any
+				 */
+				DAO_MM_CALL_METHOD(&converters, &found_route, "getconverters");
+				DAO_MM_ADD_ENTRY(&converters);
+
+				ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL(paths), idx, str_key, position) {
+					zval tmp = {}, match_position = {}, converter = {}, parameters = {}, converted_part = {};
+					if (str_key) {
+						ZVAL_STR(&tmp, str_key);
+					} else {
+						ZVAL_LONG(&tmp, idx);
+					}
+					if (!str_key || str_key->val[0] != '\0') {
+						if (dao_array_isset_fetch(&match_position, &matches, position, PH_READONLY)) {
+							/* Check if the part has a converter */
+							if (dao_array_isset_fetch(&converter, &converters, &tmp, PH_READONLY)) {
+								array_init_size(&parameters, 1);
+								dao_array_append(&parameters, &match_position, PH_COPY);
+								DAO_MM_ADD_ENTRY(&parameters);
+								DAO_MM_CALL_USER_FUNC_ARRAY(&converted_part, &converter, &parameters);
+
+								dao_array_update(&parts, &tmp, &converted_part, 0);
+							} else {
+								/* Update the parts if there is no converter */
+								dao_array_update(&parts, &tmp, &match_position, PH_COPY);
+							}
+						} else if (dao_array_isset_fetch(&converter, &converters, &tmp, PH_READONLY)) {
+							array_init_size(&parameters, 1);
+							dao_array_append(&parameters, position, PH_COPY);
+							DAO_MM_ADD_ENTRY(&parameters);
+							DAO_MM_CALL_USER_FUNC_ARRAY(&converted_part, &converter, &parameters);
+
+							dao_array_update(&parts, &tmp, &converted_part, 0);
+						}
+					}
+				} ZEND_HASH_FOREACH_END();
+			} else {
+				DAO_MM_ZVAL_DUP(&parts, &matches);
+			}
+
+			/**
+			 * Update the matches generated by preg_match
+			 */
+			dao_update_property(getThis(), SL("_matches"), &matches);
+		} else if (Z_TYPE(paths) == IS_ARRAY) {
+			zval converters = {}, *position;
+			/**
+			 * Get the route converters if any
+			 */
+			DAO_MM_CALL_METHOD(&converters, &found_route, "getconverters");
+			DAO_MM_ADD_ENTRY(&converters);
+
+			ZEND_HASH_FOREACH_KEY_VAL(Z_ARRVAL(paths), idx, str_key, position) {
+				zval tmp = {}, converter = {}, parameters = {}, converted_part = {};
+				if (str_key) {
+					ZVAL_STR(&tmp, str_key);
+				} else {
+					ZVAL_LONG(&tmp, idx);
+				}
+				if (!str_key || str_key->val[0] != '\0') {
+					if (dao_array_isset_fetch(&converter, &converters, &tmp, PH_READONLY)) {
+						array_init_size(&parameters, 1);
+						dao_array_append(&parameters, position, PH_COPY);
+						DAO_MM_ADD_ENTRY(&parameters);
+						DAO_MM_CALL_USER_FUNC_ARRAY(&converted_part, &converter, &parameters);
+
+						dao_array_update(&parts, &tmp, &converted_part, 0);
+					}
+				}
+			} ZEND_HASH_FOREACH_END();
+		} else {
+			array_init(&parts);
+			DAO_MM_ADD_ENTRY(&parts);
+		}
+	}
 
 	/**
 	 * Update the wasMatched property indicating if the route was matched
@@ -813,9 +948,11 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 			DAO_MM_CALL_METHOD(NULL, getThis(), "setnamespacename", &namespace_name);
 			dao_array_unset_str(&parts, SL("namespace"), 0);
 		} else {
-			DAO_MM_CALL_METHOD(&default_namespace, route, "getdefaultnamespace");
-			DAO_MM_ADD_ENTRY(&default_namespace);
-			if (Z_TYPE(default_namespace) == IS_NULL) {
+			if (Z_TYPE(found_route) == IS_OBJECT) {
+				DAO_MM_CALL_METHOD(&default_namespace, &found_route, "getdefaultnamespace");
+				DAO_MM_ADD_ENTRY(&default_namespace);
+			}
+			if (Z_TYPE(default_namespace) <= IS_NULL) {
 				dao_read_property(&default_namespace, getThis(), SL("_defaultNamespace"), PH_READONLY);
 			}
 			DAO_MM_CALL_METHOD(NULL, getThis(), "setnamespacename", &default_namespace);
@@ -828,9 +965,11 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 			DAO_MM_CALL_METHOD(NULL, getThis(), "setmodulename", &module);
 			dao_array_unset_str(&parts, SL("module"), 0);
 		} else {
-			DAO_MM_CALL_METHOD(&default_module, route, "getdefaultmodule");
-			DAO_MM_ADD_ENTRY(&default_module);
-			if (Z_TYPE(default_module) == IS_NULL) {
+			if (Z_TYPE(found_route) == IS_OBJECT) {
+				DAO_MM_CALL_METHOD(&default_module, &found_route, "getdefaultmodule");
+				DAO_MM_ADD_ENTRY(&default_module);
+			}
+			if (Z_TYPE(default_module) <= IS_NULL) {
 				dao_read_property(&default_module, getThis(), SL("_defaultModule"), PH_READONLY);
 			}
 			DAO_MM_CALL_METHOD(NULL, getThis(), "setmodulename", &default_module);
@@ -851,9 +990,11 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 			DAO_MM_CALL_METHOD(NULL, getThis(), "setcontrollername", &controller);
 			dao_array_unset_str(&parts, SL("controller"), 0);
 		} else {
-			DAO_MM_CALL_METHOD(&default_handler, route, "getdefaultcontroller");
-			DAO_MM_ADD_ENTRY(&default_handler);
-			if (Z_TYPE(default_handler) == IS_NULL) {
+			if (Z_TYPE(found_route) == IS_OBJECT) {
+				DAO_MM_CALL_METHOD(&default_handler, &found_route, "getdefaultcontroller");
+				DAO_MM_ADD_ENTRY(&default_handler);
+			}
+			if (Z_TYPE(default_handler) <= IS_NULL) {
 				dao_read_property(&default_handler, getThis(), SL("_defaultHandler"), PH_READONLY);
 			}
 			DAO_MM_CALL_METHOD(NULL, getThis(), "setcontrollername", &default_handler);
@@ -866,14 +1007,19 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 			DAO_MM_ADD_ENTRY(&action);
 			dao_array_unset_str(&parts, SL("action"), 0);
 		} else {
-			DAO_MM_CALL_METHOD(&action, route, "getdefaultaction");
-			DAO_MM_ADD_ENTRY(&action);
-			if (Z_TYPE(action) == IS_NULL) {
+			if (Z_TYPE(found_route) == IS_OBJECT) {
+				DAO_MM_CALL_METHOD(&action, &found_route, "getdefaultaction");
+				DAO_MM_ADD_ENTRY(&action);
+			}
+			if (Z_TYPE(action) <= IS_NULL) {
 				dao_read_property(&action, getThis(), SL("_defaultAction"), PH_READONLY);
 			}
 		}
 
-		DAO_MM_CALL_METHOD(&mode, route, "getmode");
+		if (Z_TYPE(found_route) == IS_OBJECT) {
+			DAO_MM_CALL_METHOD(&mode, &found_route, "getmode");
+			DAO_MM_ADD_ENTRY(&mode);
+		}
 		if (Z_LVAL(mode) <= DAO_ROUTER_MODE_DEFAULT) {
 			DAO_MM_CALL_METHOD(&mode, getThis(), "getmode");
 		}
@@ -929,10 +1075,12 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 		zval_ptr_dtor(&params);
 		DAO_MM_ADD_ENTRY(&params_merge);
 		if (DAO_IS_EMPTY(&params_merge)) {
-			DAO_MM_CALL_METHOD(&default_params, route, "getdefaultparams");
-			DAO_MM_ADD_ENTRY(&default_params);
+			if (Z_TYPE(found_route) == IS_OBJECT) {
+				DAO_MM_CALL_METHOD(&default_params, &found_route, "getdefaultparams");
+				DAO_MM_ADD_ENTRY(&default_params);
+			}
 
-			if (Z_TYPE(default_params) == IS_NULL) {
+			if (Z_TYPE(default_params) <= IS_NULL) {
 				dao_read_property(&default_params, getThis(), SL("_defaultParams"), PH_READONLY);
 			}
 			DAO_MM_CALL_METHOD(NULL, getThis(), "setparams", &default_params);
@@ -1007,6 +1155,10 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 PHP_METHOD(Dao_Mvc_Router, add){
 
 	zval *pattern, *paths = NULL, *regex = NULL, *http_methods = NULL;
+	zval route_id = {};
+#ifdef DAO_TREEROUTER
+	dao_mvc_router_object *intern = dao_mvc_router_object_from_obj(Z_OBJ_P(getThis()));
+#endif
 
 	dao_fetch_params(0, 1, 3, &pattern, &paths, &regex, &http_methods);
 
@@ -1027,8 +1179,32 @@ PHP_METHOD(Dao_Mvc_Router, add){
 	 */
 	object_init_ex(return_value, dao_mvc_router_route_ce);
 	DAO_CALL_METHOD(NULL, return_value, "__construct", pattern, paths, http_methods, regex);
+	DAO_CALL_METHOD(&route_id, return_value, "getrouteid");
+	dao_update_property_array(getThis(), SL("_routes"), &route_id, return_value);
+#ifdef DAO_TREEROUTER
+	int request_method = R3_METHOD_ANY;
+	if (Z_TYPE_P(http_methods) == IS_STRING) {
+		if (!strcmp(Z_STRVAL_P(http_methods), "GET")) {
+			request_method = R3_METHOD_GET;
+		} else if (!strcmp(Z_STRVAL_P(http_methods), "POST")) {
+			request_method = R3_METHOD_POST;
+		} else if (!strcmp(Z_STRVAL_P(http_methods), "PUT")) {
+			request_method = R3_METHOD_PUT;
+		} else if (!strcmp(Z_STRVAL_P(http_methods), "DELETE")) {
+			request_method = R3_METHOD_DELETE;
+		} else if (!strcmp(Z_STRVAL_P(http_methods), "PATCH")) {
+			request_method = R3_METHOD_PATCH;
+		} else if (!strcmp(Z_STRVAL_P(http_methods), "HEAD")) {
+			request_method = R3_METHOD_HEAD;
+		} else if (!strcmp(Z_STRVAL_P(http_methods), "OPTIONS")) {
+			request_method = R3_METHOD_OPTIONS;
+		}
+	}
 
-	dao_update_property_array_append(getThis(), SL("_routes"), return_value);
+	r3_tree_insert_routel(intern->tree, request_method, Z_STRVAL_P(pattern), Z_STRLEN_P(pattern), (void *)Z_LVAL(route_id));
+	if (r3_tree_compile(intern->tree, NULL) != 0) { //  != SUCCESS
+	}
+#endif
 }
 
 static void dao_mvc_router_add_helper(INTERNAL_FUNCTION_PARAMETERS, zend_string *method)
