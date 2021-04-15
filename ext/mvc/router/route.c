@@ -220,12 +220,14 @@ PHP_METHOD(Dao_Mvc_Router_Route, __construct){
 	if (!regex) {
 		regex = &DAO_GLOBAL(z_null);
 	}
-
+#ifdef DAO_TREEROUTER
+	dao_update_property(getThis(), SL("_paths"), paths);
+#else
 	/**
 	 * Configure the route (extract parameters, paths, etc)
 	 */
 	DAO_CALL_METHOD(NULL, getThis(), "reconfigure", pattern, paths, regex);
-
+#endif
 	/**
 	 * Update the HTTP method constraints
 	 */
