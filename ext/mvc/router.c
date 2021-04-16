@@ -821,9 +821,6 @@ ROUTEFOUNDED:
 		 */
 		DAO_MM_CALL_METHOD(&paths, &found_route, "getpaths");
 		DAO_MM_ADD_ENTRY(&paths);
-		if (Z_TYPE(paths) == IS_ARRAY) {
-			DAO_MM_ZVAL_DUP(&parts, &paths);
-		}
 
 		if (unlikely(DAO_GLOBAL(debug).enable_debug)) {
 			ZVAL_STRING(&debug_message, "--Route paths: ");
@@ -876,7 +873,8 @@ ROUTEFOUNDED:
 						}
 					}
 				} ZEND_HASH_FOREACH_END();
-			} else {
+			}
+			if (DAO_IS_EMPTY(&parts)) {
 				DAO_MM_ZVAL_DUP(&parts, &matches);
 			}
 
@@ -886,6 +884,7 @@ ROUTEFOUNDED:
 			dao_update_property(getThis(), SL("_matches"), &matches);
 		} else if (Z_TYPE(paths) == IS_ARRAY) {
 			zval converters = {}, *position;
+			DAO_MM_ZVAL_DUP(&parts, &paths);
 			/**
 			 * Get the route converters if any
 			 */
@@ -1157,10 +1156,12 @@ PHP_METHOD(Dao_Mvc_Router, add){
 	zval *pattern, *paths = NULL, *regex = NULL, *http_methods = NULL;
 	zval route_id = {};
 #ifdef DAO_TREEROUTER
+	zval compiled_pattern = {};
+	int request_method = R3_METHOD_ANY;
 	dao_mvc_router_object *intern = dao_mvc_router_object_from_obj(Z_OBJ_P(getThis()));
 #endif
 
-	dao_fetch_params(0, 1, 3, &pattern, &paths, &regex, &http_methods);
+	dao_fetch_params(1, 1, 3, &pattern, &paths, &regex, &http_methods);
 
 	if (!paths) {
 		paths = &DAO_GLOBAL(z_null);
@@ -1178,11 +1179,12 @@ PHP_METHOD(Dao_Mvc_Router, add){
 	 * Every route is internally stored as a Dao\Mvc\Router\Route
 	 */
 	object_init_ex(return_value, dao_mvc_router_route_ce);
-	DAO_CALL_METHOD(NULL, return_value, "__construct", pattern, paths, http_methods, regex);
-	DAO_CALL_METHOD(&route_id, return_value, "getrouteid");
+	DAO_MM_CALL_METHOD(NULL, return_value, "__construct", pattern, paths, http_methods, regex);
+	DAO_MM_CALL_METHOD(&route_id, return_value, "getrouteid");
 	dao_update_property_array(getThis(), SL("_routes"), &route_id, return_value);
+
 #ifdef DAO_TREEROUTER
-	int request_method = R3_METHOD_ANY;
+	ZVAL_COPY_VALUE(&compiled_pattern, pattern);
 	if (Z_TYPE_P(http_methods) == IS_STRING) {
 		if (!strcmp(Z_STRVAL_P(http_methods), "GET")) {
 			request_method = R3_METHOD_GET;
@@ -1201,10 +1203,57 @@ PHP_METHOD(Dao_Mvc_Router, add){
 		}
 	}
 
-	r3_tree_insert_routel(intern->tree, request_method, Z_STRVAL_P(pattern), Z_STRLEN_P(pattern), (void *)Z_LVAL(route_id));
+	/**
+	 * If a pattern contains ':', maybe there are placeholders to replace
+	 */
+	if (dao_memnstr_str(pattern, SL(":"))) {
+		zval wildcard = {}, id_pattern;
+
+		if (dao_memnstr_str(pattern, SL("/:module"))) {
+			DAO_MM_ZVAL_STRING(&wildcard, ":module");
+			DAO_MM_ZVAL_STRING(&id_pattern, "{module:[^/]+}");
+
+			DAO_STR_REPLACE(&compiled_pattern, &wildcard, &id_pattern, &compiled_pattern);
+			DAO_MM_ADD_ENTRY(&compiled_pattern);
+		}
+
+		if (dao_memnstr_str(pattern, SL("/:namespace"))) {
+			DAO_MM_ZVAL_STRING(&wildcard, ":namespace");
+			DAO_MM_ZVAL_STRING(&id_pattern, "{namespace:[^/]+}");
+
+			DAO_STR_REPLACE(&compiled_pattern, &wildcard, &id_pattern, &compiled_pattern);
+			DAO_MM_ADD_ENTRY(&compiled_pattern);
+		}
+
+		if (dao_memnstr_str(pattern, SL("/:controller"))) {
+			DAO_MM_ZVAL_STRING(&wildcard, ":controller");
+			DAO_MM_ZVAL_STRING(&id_pattern, "{controller:[^/]+}");
+
+			DAO_STR_REPLACE(&compiled_pattern, &wildcard, &id_pattern, &compiled_pattern);
+			DAO_MM_ADD_ENTRY(&compiled_pattern);
+		}
+
+		if (dao_memnstr_str(pattern, SL("/:action"))) {
+			DAO_MM_ZVAL_STRING(&wildcard, ":action");
+			DAO_MM_ZVAL_STRING(&id_pattern, "{action:[^/]+}");
+
+			DAO_STR_REPLACE(&compiled_pattern, &wildcard, &id_pattern, &compiled_pattern);
+			DAO_MM_ADD_ENTRY(&compiled_pattern);
+		}
+
+		if (dao_memnstr_str(pattern, SL("/:params"))) {
+			DAO_MM_ZVAL_STRING(&wildcard, ":params");
+			DAO_MM_ZVAL_STRING(&id_pattern, "{params:.*}");
+
+			DAO_STR_REPLACE(&compiled_pattern, &wildcard, &id_pattern, &compiled_pattern);
+			DAO_MM_ADD_ENTRY(&compiled_pattern);
+		}
+	}
+	r3_tree_insert_routel(intern->tree, request_method, Z_STRVAL(compiled_pattern), Z_STRLEN(compiled_pattern), (void *)Z_LVAL(route_id));
 	if (r3_tree_compile(intern->tree, NULL) != 0) { //  != SUCCESS
 	}
 #endif
+	RETURN_MM();
 }
 
 static void dao_mvc_router_add_helper(INTERNAL_FUNCTION_PARAMETERS, zend_string *method)
