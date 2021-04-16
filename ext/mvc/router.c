@@ -759,6 +759,7 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 		 * Check for beforeMatch conditions
 		 */
 		if (zend_is_true(&route_found)) {
+			ZVAL_COPY_VALUE(&found_route, route);
 			if (likely(DAO_GLOBAL(mvc).enable_router_events)) {
 				DAO_MM_ZVAL_STRING(&event_name, "router:matchedRoute");
 				DAO_MM_CALL_METHOD(NULL, getThis(), "fireevent", &event_name, route);
@@ -792,7 +793,7 @@ PHP_METHOD(Dao_Mvc_Router, handle){
 
 			if (zend_is_true(&route_found)) {
 				dao_update_property(getThis(), SL("_matchedRoute"), route);
-				break;
+				goto ROUTEFOUNDED;
 			}
 
 			if (unlikely(DAO_GLOBAL(debug).enable_debug)) {
@@ -836,6 +837,7 @@ ROUTEFOUNDED:
 		if (Z_TYPE(matches) == IS_ARRAY) {
 			if (Z_TYPE(paths) == IS_ARRAY) {
 				zval converters = {}, *position;
+				DAO_MM_ZVAL_DUP(&parts, &paths);
 				/**
 				 * Get the route converters if any
 				 */
@@ -927,7 +929,7 @@ ROUTEFOUNDED:
 		dao_update_property_null(getThis(), SL("_matches"));
 		dao_update_property_null(getThis(), SL("_matchedRoute"));
 		dao_read_property(&parts, getThis(), SL("_notFoundPaths"), PH_READONLY);
-		if (Z_TYPE(parts) != IS_NULL) {
+		if (Z_TYPE(parts) == IS_ARRAY) {
 			ZVAL_TRUE(&route_found);
 		}
 	}
